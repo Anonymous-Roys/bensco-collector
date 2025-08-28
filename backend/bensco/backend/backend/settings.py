@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import dj_database_url
 
 from datetime import timedelta
 
@@ -90,15 +91,19 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'bsl_db',
-        'USER': 'postgres',
-        'PASSWORD': '11001',
-        'HOST': 'db',
-        # 'HOST': 'localhost',
-        'PORT': '5432',
-    } 
+     "default": dj_database_url.config(
+        default="postgresql://postgres:1575461@localhost:5432/bsl_db"  # local fallback
+    )
+    # 'default': {
+
+    #     'ENGINE': 'django.db.backends.postgresql',
+    #     'NAME': 'bsl_db',
+    #     'USER': 'postgres',
+    #     'PASSWORD': '11001',
+    #     'HOST': 'db',
+        
+    #     'PORT': '5432',
+    # } 
 }
 
 
