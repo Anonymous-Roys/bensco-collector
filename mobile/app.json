@@ -1,0 +1,124 @@
+{
+  "expo": {
+    "name": "Bensco Susu",
+    "slug": "mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "icon": "./assets/images/icon.png",
+    "scheme": "mobile",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "android": {
+  "adaptiveIcon": {
+    "foregroundImage": "./assets/images/adaptive-icon.png",
+    "backgroundColor": "#ffffff"
+  },
+  "softwareKeyboardLayoutMode": "pan",
+  "permissions": [
+    "VIBRATE",
+    "ACCESS_FINE_LOCATION",
+    "ACCESS_COARSE_LOCATION",
+    "READ_EXTERNAL_STORAGE",
+    "WRITE_EXTERNAL_STORAGE",
+    "CAMERA",
+    "READ_CONTACTS",
+    "WRITE_CONTACTS",
+    "READ_CALENDAR",
+    "WRITE_CALENDAR",
+    "ACCESS_BACKGROUND_LOCATION",
+    "ACCESS_MEDIA_LOCATION",
+    "POST_NOTIFICATIONS",
+    "ACCESS_WIFI_STATE",
+    "CHANGE_WIFI_STATE",
+    "ACCESS_NETWORK_STATE",
+    "INTERNET",
+    "FOREGROUND_SERVICE",
+    "REQUEST_INSTALL_PACKAGES",
+    "ACCESS_NOTIFICATION_POLICY",
+    "BLUETOOTH",
+    "BLUETOOTH_ADMIN",
+    "BLUETOOTH_ADVERTISE",
+    "BLUETOOTH_SCAN",
+    "ACCESS_BLUETOOTH_PRIVILEGED",
+    "WAKE_LOCK",
+    "RECEIVE_BOOT_COMPLETED",
+    "MANAGE_EXTERNAL_STORAGE",
+    "READ_PHONE_STATE",
+    "READ_PHONE_NUMBERS",
+    "WRITE_PHONE_NUMBERS",
+    "READ_SMS",
+    "RECEIVE_SMS",
+    "SEND_SMS",
+    "READ_CALL_LOG",
+    "WRITE_CALL_LOG",
+    "PROCESS_OUTGOING_CALLS",
+    "USE_FULL_SCREEN_INTENT",
+    "USE_BIOMETRIC",
+    "USE_FINGERPRINT",
+    "USE_CREDENTIALS",
+    "MANAGE_ACCOUNTS",
+    "GET_ACCOUNTS",
+    "AUTHENTICATE_ACCOUNTS",
+    "SET_WALLPAPER",
+    "SET_WALLPAPER_HINTS",
+    "CHANGE_CONFIGURATION"
+  ],
+  "edgeToEdgeEnabled": true,
+  "package": "com.davidarhin.mobile"
+},
+    "ios": {
+       "supportsTablet": true,
+      "bundleIdentifier": "com.davidarhin.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+},
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-font",
+        {
+          "fonts": ["./assets/fonts/SpaceMono-Regular.ttf"]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "position": "absolute",
+          "visibility": "hidden"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cbf7bf20-50c3-40f9-96f0-baeacd0a8e93"
+      }
+    }
+  }
+}

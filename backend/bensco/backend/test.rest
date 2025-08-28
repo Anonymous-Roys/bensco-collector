@@ -1,0 +1,222 @@
+###
+# AUTH MODULE
+
+POST http://localhost:8000/auth/login/
+Content-Type: application/json
+
+{
+  "email": "davidarhin2005@gmail.com",
+  "password": "davelled"
+}
+
+###
+
+# POST http://localhost:8000/auth/logout
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {}
+
+# ###
+
+# POST http://localhost:8000/auth/reset-request
+# Content-Type: application/json
+
+# {
+#   "email": "user@example.com"
+# }
+
+# ###
+
+# POST http://localhost:8000/auth/reset-confirm
+# Content-Type: application/json
+
+# {
+#   "token": "reset-token",
+#   "new_password": "newPassword123"
+# }
+
+# ###
+
+# POST http://localhost:8000/auth/change-password
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {
+#   "old_password": "oldPassword",
+#   "new_password": "newPassword123"
+# }
+
+# ###
+# # USERS MODULE (Admin only)
+
+# GET http://localhost:8000/users/
+# Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc1MzI0NjM3MSwiaWF0IjoxNzUzMTU5OTcxLCJqdGkiOiJjOTRlM2IwMmE1Yzc0ZTdkOTE0ZThlY2EzMWE4MGExZSIsInVzZXJfaWQiOiIzMDYwODNhYy1jMjdlLTRhZGEtYWE5NC1jMjA0ZGY5NzYwNDciLCJ1c2VybmFtZSI6ImRhdmUiLCJyb2xlIjoiY29sbGVjdG9yIiwidW5pcXVlX2NvZGUiOiJCU0wtQ09MLUZDNkMzIiwibXVzdF9jaGFuZ2VfcGFzc3dvcmQiOnRydWV9.bicK636zbl_Hz7UjZElHJZfDvci66IJrGbWfvqv2tnA
+
+# ###
+
+# POST http://localhost:8000/users/
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {
+#   "username": "collector1",
+#   "email": "collector1@example.com",
+#   "role": "collector",
+#   "password": "password123"
+# }
+
+# ###
+
+# PATCH http://localhost:8000/users/1
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {
+#   "email": "updated@example.com"
+# }
+
+# ###
+
+# DELETE http://localhost:8000/users/1
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# # CLIENTS MODULE
+
+# GET http://localhost:8000/clients/
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# POST http://localhost:8000/clients/
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {
+#   "name": "Client A",
+#   "phone": "1234567890"
+# }
+
+# ###
+
+# GET http://localhost:8000/clients/1
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# PATCH http://localhost:8000/clients/1
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {
+#   "phone": "0987654321"
+# }
+
+# ###
+# # CONTRIBUTIONS MODULE
+
+# GET http://localhost:8000/contributions/
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# POST http://localhost:8000/contributions/
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {
+#   "client_id": 1,
+#   "amount": 1000
+# }
+
+# ###
+
+# GET http://localhost:8000/contributions/1
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# PATCH http://localhost:8000/contributions/1
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {
+#   "amount": 1500
+# }
+
+# ###
+# # SAVINGS CYCLES MODULE
+
+# GET http://localhost:8000/cycles/
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# POST http://localhost:8000/cycles/
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {
+#   "client_id": 1,
+#   "start_date": "2025-07-01"
+# }
+
+# ###
+
+# GET http://localhost:8000/cycles/client/1
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# PATCH http://localhost:8000/cycles/1/close
+# Authorization: Bearer {{jwt_token}}
+
+# {}
+# ###
+# # PAYOUTS MODULE
+
+# GET http://localhost:8000/payouts/
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# POST http://localhost:8000/payouts/request
+# Authorization: Bearer {{jwt_token}}
+# Content-Type: application/json
+
+# {
+#   "client_id": 1,
+#   "amount": 5000
+# }
+
+# ###
+
+# PATCH http://localhost:8000/payouts/1/approve
+# Authorization: Bearer {{jwt_token}}
+
+# {}
+
+# ###
+
+# PATCH http://localhost:8000/payouts/1/pay
+# Authorization: Bearer {{jwt_token}}
+
+# {}
+
+# ###
+# # REPORTS MODULE
+
+# GET http://localhost:8000/reports/collectors
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# GET http://localhost:8000/reports/clients
+# Authorization: Bearer {{jwt_token}}
+
+# ###
+
+# GET http://localhost:8000/reports/contributions?date=2025-07-01
+# Authorization: Bearer {{jwt_token}}

@@ -1,0 +1,620 @@
+{
+    "users": [
+        {
+            "id": "c4768fdd-bffc-4aa5-a7ac-d04d39b3a155",
+            "username": "fnguyen",
+            "email": "richard43@example.net",
+            "password": "password123",
+            "role": "admin",
+            "unique_code": "BSL-ADM-84039",
+            "must_change_password": false,
+            "is_active": true,
+            "created_at": "2025-04-06 20:19:08",
+            "updated_at": "2025-05-14 11:35:39"
+        },
+        {
+            "id": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "username": "ohartman",
+            "email": "joshua61@example.org",
+            "password": "password123",
+            "role": "collector",
+            "unique_code": "BSL-COL-9D6F8",
+            "must_change_password": false,
+            "is_active": true,
+            "created_at": "2025-05-03 01:09:34",
+            "updated_at": "2025-06-20 20:09:49"
+        },
+        {
+            "id": "b25fe1b7-8fcb-4fe8-bcc7-7eaf3725cff3",
+            "username": "nancymartinez",
+            "email": "qthomas@example.net",
+            "password": "password123",
+            "role": "admin",
+            "unique_code": "BSL-ADM-D69E1",
+            "must_change_password": false,
+            "is_active": true,
+            "created_at": "2025-05-21 13:13:26",
+            "updated_at": "2025-05-11 08:05:35"
+        },
+        {
+            "id": "467bb223-6897-4ff1-819d-d816a5a2b25a",
+            "username": "psanchez",
+            "email": "bridgeskaren@example.net",
+            "password": "password123",
+            "role": "admin",
+            "unique_code": "BSL-ADM-EFFB1",
+            "must_change_password": false,
+            "is_active": true,
+            "created_at": "2025-01-22 10:50:55",
+            "updated_at": "2025-06-30 11:17:26"
+        },
+        {
+            "id": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "username": "dyerdeborah",
+            "email": "phillipweeks@example.net",
+            "password": "password123",
+            "role": "collector",
+            "unique_code": "BSL-COL-9B26E",
+            "must_change_password": false,
+            "is_active": true,
+            "created_at": "2025-02-07 09:38:18",
+            "updated_at": "2025-06-02 11:48:43"
+        },
+        {
+            "id": "b3463f74-1f49-43ea-8f50-349d2e70a830",
+            "username": "ashleybrady",
+            "email": "bradleyhoffman@example.net",
+            "password": "password123",
+            "role": "admin",
+            "unique_code": "BSL-ADM-497DE",
+            "must_change_password": false,
+            "is_active": true,
+            "created_at": "2025-06-22 00:53:17",
+            "updated_at": "2025-01-01 15:33:49"
+        }
+    ],
+    "addresses": [
+        {
+            "id": "e4abbf4c-5392-4976-ad73-11aa057de3e9",
+            "label": "Cape Coast",
+            "region": "Volta",
+            "created_at": "2025-05-29 12:19:13"
+        },
+        {
+            "id": "dd4bf298-ebda-40a8-a3ec-33cb00fb008d",
+            "label": "Sunyani",
+            "region": "Upper East",
+            "created_at": "2025-07-10 09:38:58"
+        },
+        {
+            "id": "ae53d97a-5e3b-4569-8eee-bd24a9996afc",
+            "label": "Madina",
+            "region": "Upper West",
+            "created_at": "2025-02-01 12:19:50"
+        },
+        {
+            "id": "be0710b4-75db-413a-a999-b46be19099de",
+            "label": "Sunyani",
+            "region": "Bono",
+            "created_at": "2025-05-15 13:04:01"
+        },
+        {
+            "id": "fcd8e424-4f47-4aaa-9ff1-3cdb56f8a25f",
+            "label": "Takoradi",
+            "region": "Northern",
+            "created_at": "2025-06-02 07:16:28"
+        },
+        {
+            "id": "670cc144-cc71-4f58-8ff3-ec3d461eabd7",
+            "label": "Lapaz",
+            "region": "Volta",
+            "created_at": "2025-03-08 02:18:28"
+        }
+    ],
+    "clients": [
+        {
+            "name": "Misty Robinson",
+            "phone_number": "823.610.4984",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "address": "e4abbf4c-5392-4976-ad73-11aa057de3e9",
+            "dob": "1977-04-06",
+            "amount_daily": 2,
+            "next_of_kin": "Robert Carroll",
+            "is_fixed": true,
+            "start_date": "2025-07-31",
+            "unique_code": "BSL-CLI-FFC99",
+            "created_at": "2025-06-13 00:07:06"
+        },
+        {
+            "name": "Nathan Johnson",
+            "phone_number": "504-541-5024",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "address": "fcd8e424-4f47-4aaa-9ff1-3cdb56f8a25f",
+            "dob": "1965-09-24",
+            "amount_daily": 2,
+            "next_of_kin": "Mark Chang",
+            "is_fixed": true,
+            "start_date": "2025-07-26",
+            "unique_code": "BSL-CLI-87045",
+            "created_at": "2025-02-03 18:18:10"
+        },
+        {
+            "name": "Aaron Conley",
+            "phone_number": "969-737-3867x21014",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "address": "fcd8e424-4f47-4aaa-9ff1-3cdb56f8a25f",
+            "dob": "1980-10-01",
+            "amount_daily": 2,
+            "next_of_kin": "Jessica Casey",
+            "is_fixed": false,
+            "start_date": "2025-07-23",
+            "unique_code": "BSL-CLI-94FEE",
+            "created_at": "2025-07-02 00:19:26"
+        },
+        {
+            "name": "Tiffany Roberts",
+            "phone_number": "311.363.1054x00674",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "address": "670cc144-cc71-4f58-8ff3-ec3d461eabd7",
+            "dob": "1977-11-02",
+            "amount_daily": 10,
+            "next_of_kin": "Amy Fields",
+            "is_fixed": false,
+            "start_date": "2025-07-17",
+            "unique_code": "BSL-CLI-494FA",
+            "created_at": "2025-02-23 11:34:26"
+        },
+        {
+            "name": "Mary Hurley",
+            "phone_number": "+1-552-374-6346x139",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "address": "e4abbf4c-5392-4976-ad73-11aa057de3e9",
+            "dob": "1966-11-20",
+            "amount_daily": 10,
+            "next_of_kin": "Travis Anderson",
+            "is_fixed": true,
+            "start_date": "2025-07-22",
+            "unique_code": "BSL-CLI-6F990",
+            "created_at": "2025-01-01 19:14:08"
+        },
+        {
+            "name": "Jason Brown",
+            "phone_number": "001-833-852-4307x20175",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "address": "e4abbf4c-5392-4976-ad73-11aa057de3e9",
+            "dob": "1964-10-30",
+            "amount_daily": 5,
+            "next_of_kin": "Katie Santiago",
+            "is_fixed": true,
+            "start_date": "2025-07-23",
+            "unique_code": "BSL-CLI-9B839",
+            "created_at": "2025-05-13 14:12:50"
+        },
+        {
+            "name": "Linda Crosby",
+            "phone_number": "437-737-3306x91066",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "address": "be0710b4-75db-413a-a999-b46be19099de",
+            "dob": "1975-01-20",
+            "amount_daily": 10,
+            "next_of_kin": "Roger Robbins",
+            "is_fixed": true,
+            "start_date": "2025-07-23",
+            "unique_code": "BSL-CLI-70286",
+            "created_at": "2025-07-30 10:04:33"
+        },
+        {
+            "name": "Kimberly Williams",
+            "phone_number": "(629)984-4147x6028",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "address": "dd4bf298-ebda-40a8-a3ec-33cb00fb008d",
+            "dob": "1985-05-11",
+            "amount_daily": 2,
+            "next_of_kin": "Eric Henderson MD",
+            "is_fixed": true,
+            "start_date": "2025-07-22",
+            "unique_code": "BSL-CLI-81076",
+            "created_at": "2025-03-29 07:21:33"
+        },
+        {
+            "name": "Maria Wilkerson",
+            "phone_number": "966.216.3535",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "address": "be0710b4-75db-413a-a999-b46be19099de",
+            "dob": "1981-06-29",
+            "amount_daily": 10,
+            "next_of_kin": "Judy Jones",
+            "is_fixed": true,
+            "start_date": "2025-08-01",
+            "unique_code": "BSL-CLI-5237A",
+            "created_at": "2025-01-29 06:29:49"
+        },
+        {
+            "name": "Christopher Cox",
+            "phone_number": "953-678-0047",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "address": "dd4bf298-ebda-40a8-a3ec-33cb00fb008d",
+            "dob": "1969-10-05",
+            "amount_daily": 10,
+            "next_of_kin": "Virginia Johnson",
+            "is_fixed": false,
+            "start_date": "2025-07-24",
+            "unique_code": "BSL-CLI-4EE12",
+            "created_at": "2025-04-17 07:29:21"
+        }
+    ],
+    "savings_cycles": [
+        {
+            "client": "BSL-CLI-FFC99",
+            "start_date": "2025-07-31",
+            "expected_end_date": "2025-08-31",
+            "cycle_length": 31,
+            "status": "active"
+        },
+        {
+            "client": "BSL-CLI-87045",
+            "start_date": "2025-07-26",
+            "expected_end_date": "2025-08-26",
+            "cycle_length": 31,
+            "status": "active"
+        },
+        {
+            "client": "BSL-CLI-94FEE",
+            "start_date": "2025-07-23",
+            "expected_end_date": "2025-08-23",
+            "cycle_length": 31,
+            "status": "active"
+        },
+        {
+            "client": "BSL-CLI-494FA",
+            "start_date": "2025-07-17",
+            "expected_end_date": "2025-08-17",
+            "cycle_length": 31,
+            "status": "active"
+        },
+        {
+            "client": "BSL-CLI-6F990",
+            "start_date": "2025-07-22",
+            "expected_end_date": "2025-08-22",
+            "cycle_length": 31,
+            "status": "active"
+        },
+        {
+            "client": "BSL-CLI-9B839",
+            "start_date": "2025-07-23",
+            "expected_end_date": "2025-08-23",
+            "cycle_length": 31,
+            "status": "active"
+        },
+        {
+            "client": "BSL-CLI-70286",
+            "start_date": "2025-07-23",
+            "expected_end_date": "2025-08-23",
+            "cycle_length": 31,
+            "status": "active"
+        },
+        {
+            "client": "BSL-CLI-81076",
+            "start_date": "2025-07-22",
+            "expected_end_date": "2025-08-22",
+            "cycle_length": 31,
+            "status": "active"
+        },
+        {
+            "client": "BSL-CLI-5237A",
+            "start_date": "2025-08-01",
+            "expected_end_date": "2025-09-01",
+            "cycle_length": 31,
+            "status": "active"
+        },
+        {
+            "client": "BSL-CLI-4EE12",
+            "start_date": "2025-07-24",
+            "expected_end_date": "2025-08-24",
+            "cycle_length": 31,
+            "status": "active"
+        }
+    ],
+    "contributions": [
+        {
+            "client": "BSL-CLI-4EE12",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 50,
+            "date": "2025-07-21",
+            "is_bulk": true,
+            "days_covered": 5,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-4EE12",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 10,
+            "date": "2025-07-31",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-94FEE",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 2,
+            "date": "2025-07-23",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-4EE12",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 10,
+            "date": "2025-07-25",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "Behind own maintain will player.",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-94FEE",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 4,
+            "date": "2025-07-22",
+            "is_bulk": true,
+            "days_covered": 2,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-494FA",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 50,
+            "date": "2025-07-28",
+            "is_bulk": true,
+            "days_covered": 5,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-5237A",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 20,
+            "date": "2025-07-20",
+            "is_bulk": true,
+            "days_covered": 2,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-94FEE",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 10,
+            "date": "2025-07-23",
+            "is_bulk": true,
+            "days_covered": 5,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-9B839",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 5,
+            "date": "2025-07-22",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "Especially tax stay person human put decade.",
+            "is_override": true
+        },
+        {
+            "client": "BSL-CLI-81076",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 10,
+            "date": "2025-07-18",
+            "is_bulk": true,
+            "days_covered": 5,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-87045",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 2,
+            "date": "2025-07-20",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "Help clearly science four part expert yet.",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-6F990",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 20,
+            "date": "2025-07-29",
+            "is_bulk": true,
+            "days_covered": 2,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-494FA",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 10,
+            "date": "2025-07-21",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "Happen else treatment to keep man win.",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-94FEE",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 2,
+            "date": "2025-07-28",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "Impact local claim key they light.",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-494FA",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 20,
+            "date": "2025-07-27",
+            "is_bulk": true,
+            "days_covered": 2,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-5237A",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 10,
+            "date": "2025-07-21",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-81076",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 10,
+            "date": "2025-07-22",
+            "is_bulk": true,
+            "days_covered": 5,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-5237A",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 10,
+            "date": "2025-07-23",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "American lot tonight cultural away draw.",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-4EE12",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 20,
+            "date": "2025-07-31",
+            "is_bulk": true,
+            "days_covered": 2,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-9B839",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 5,
+            "date": "2025-07-25",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-494FA",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 10,
+            "date": "2025-07-17",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "",
+            "is_override": true
+        },
+        {
+            "client": "BSL-CLI-4EE12",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 50,
+            "date": "2025-07-26",
+            "is_bulk": true,
+            "days_covered": 5,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-FFC99",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 10,
+            "date": "2025-07-24",
+            "is_bulk": true,
+            "days_covered": 5,
+            "note": "",
+            "is_override": true
+        },
+        {
+            "client": "BSL-CLI-70286",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 10,
+            "date": "2025-07-22",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-FFC99",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 10,
+            "date": "2025-07-24",
+            "is_bulk": true,
+            "days_covered": 5,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-FFC99",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 2,
+            "date": "2025-07-26",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "",
+            "is_override": true
+        },
+        {
+            "client": "BSL-CLI-70286",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 10,
+            "date": "2025-07-17",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "Tree democratic consumer size phone political thank.",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-4EE12",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 50,
+            "date": "2025-07-26",
+            "is_bulk": true,
+            "days_covered": 5,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-5237A",
+            "collector": "19a738d1-d0c4-40f2-849d-da9608783a46",
+            "amount": 10,
+            "date": "2025-07-19",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "",
+            "is_override": false
+        },
+        {
+            "client": "BSL-CLI-FFC99",
+            "collector": "a13afff2-ef84-4d37-a1e6-b55468ee4fad",
+            "amount": 2,
+            "date": "2025-07-25",
+            "is_bulk": false,
+            "days_covered": 1,
+            "note": "Game game laugh from need.",
+            "is_override": false
+        }
+    ]
+}

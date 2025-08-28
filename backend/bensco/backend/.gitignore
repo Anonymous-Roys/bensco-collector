@@ -1,0 +1,46 @@
+# Django
+*.pyc
+__pycache__/
+db.sqlite3
+*.log
+
+# Environment
+.env
+.env.*
+
+# Migrations
+**/migrations/*.py
+**/migrations/*.pyc
+!**/migrations/__init__.py
+
+# VSCode
+.vscode/
+
+# macOS / Linux / Windows
+.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Pytest
+htmlcov/
+coverage.xml
+.pytest_cache/
+
+# Node (for dashboard if using React)
+node_modules/
+npm-debug.log
+yarn-error.log
+.pnp/
+.pnp.js
+
+# Virtual env
+*/venv/
+.env/
+
+# Virtualenv
+*\venv\
