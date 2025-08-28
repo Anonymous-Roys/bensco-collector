@@ -9,9 +9,9 @@ db.sqlite3
 .env.*
 
 # Migrations
-**/migrations/*.py
-**/migrations/*.pyc
-!**/migrations/__init__.py
+# **/migrations/*.py
+# **/migrations/*.pyc
+# !**/migrations/__init__.py
 
 # VSCode
 .vscode/

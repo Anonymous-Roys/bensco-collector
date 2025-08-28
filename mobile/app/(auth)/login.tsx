@@ -17,7 +17,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { router } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-import { authAPI, storageService } from '@/services/api';
+// import { authAPI, storageService } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
 
 // const { width, height } = Dimensions.get('window');

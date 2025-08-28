@@ -1,8 +1,8 @@
 // API Configuration for Bensco Susu App
 export const API_CONFIG = {
   // Base URL - change this based on your environment
-  BASE_URL: 'http://localhost:8000', // Development
-  // BASE_URL: 'https://your-production-domain.com', // Production
+  // BASE_URL: 'http://localhost:8000', // Development
+  BASE_URL: 'https://bensco-collector.onrender.com/', // Production
   
   // Auth endpoints
   AUTH: {
