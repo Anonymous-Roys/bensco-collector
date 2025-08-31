@@ -16,6 +16,7 @@ def generate_user_code(role):
         code = f"{prefix}{hex_part}"
         if not UserModel.objects.filter(unique_code=code).exists():
             return code
+
 class Roles(models.TextChoices):
     ADMIN = 'admin', 'Admin'
     COLLECTOR = 'collector', 'Collector'
@@ -28,6 +29,10 @@ class UserModel(AbstractUser):
     is_active = models.BooleanField(default=True)
     email = models.EmailField(blank=True, null=True, unique=True)
     
+    # Collector specific fields
+    phone_number = models.CharField(max_length=20, blank=True, null=True, help_text="Phone number for the collector")
+    assigned_zone = models.CharField(max_length=100, blank=True, null=True, help_text="Zone assigned to the collector")
+    route_info = models.TextField(blank=True, null=True, help_text="Additional route information for the collector")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

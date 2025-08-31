@@ -1,5 +1,5 @@
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer, UserModelSerializer, CreateUserSerializer
+from .serializers import CustomTokenObtainPairSerializer, UserModelSerializer, CreateUserSerializer, UpdateUserSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions  import IsAuthenticated
@@ -9,16 +9,15 @@ from .models import PasswordResetRequestModel
 from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework import status
+from django.shortcuts import get_object_or_404
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
-
-
 @api_view(['POST'])
 def collector_password_reset_request_view(request):
     identifier = request.data.get('email_or_username')
-
+    
     try:
         user = UserModel.objects.get(Q(email=identifier) | Q(username=identifier))
 
@@ -73,7 +72,59 @@ def create_user(request):
             'username': user.username,
             'email': user.email,
             'role': user.role,
-            'unique_code': user.unique_code
+            'unique_code': user.unique_code,
+            'phone_number': user.phone_number,
+            'assigned_zone': user.assigned_zone,
+            'route_info': user.route_info,
+            'is_active': user.is_active
         }, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def update_user(request, user_id):
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can update users.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        user = get_object_or_404(UserModel, id=user_id)
+        serializer = UpdateUserSerializer(user, data=request.data, partial=True)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_user(request, user_id):
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can delete users.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        user = get_object_or_404(UserModel, id=user_id)
+        
+        # Prevent admin from deleting themselves
+        if user.id == request.user.id:
+            return Response({'detail': 'Cannot delete your own account.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.delete()
+        return Response({'detail': 'User deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+    except Exception as e:
+        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_detail(request, user_id):
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can view user details.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        user = get_object_or_404(UserModel, id=user_id)
+        serializer = UserModelSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)

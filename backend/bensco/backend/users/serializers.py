@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import UserModel
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
 class UserModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserModel
@@ -12,6 +13,9 @@ class UserModelSerializer(serializers.ModelSerializer):
             'unique_code',
             'must_change_password',
             'is_active',
+            'phone_number',
+            'assigned_zone',
+            'route_info',
             'created_at',
             'updated_at',
         ]
@@ -35,7 +39,7 @@ class UserModelSerializer(serializers.ModelSerializer):
 class CreateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserModel
-        fields = ['username', 'password', 'email', "role"]
+        fields = ['username', 'password', 'email', 'role', 'phone_number', 'assigned_zone', 'route_info']
         extra_kwargs = {
             'password': {'write_only': True}
         }
@@ -43,6 +47,12 @@ class CreateUserSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = UserModel.objects.create_user(**validated_data)
         return user
+
+class UpdateUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserModel
+        fields = ['username', 'email', 'role', 'phone_number', 'assigned_zone', 'route_info', 'is_active']
+        read_only_fields = ['id', 'unique_code', 'created_at', 'updated_at']
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod

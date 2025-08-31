@@ -4,23 +4,33 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .serializers import ClientModelSerializer
+from .serializers import ClientModelSerializer, AddressModelSerializer
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
-from .serializers import AddressModelSerializer
-# Create your views here.
-
+from users.models import UserModel
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def create_address(request):
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can create addresses.'}, status=status.HTTP_403_FORBIDDEN)
+    
     serializer = AddressModelSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
         return Response(data=serializer.data, status=status.HTTP_201_CREATED)
     return Response(data=serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_addresses(request):
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can view addresses.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    addresses = AddressModel.objects.all()
+    serializer = AddressModelSerializer(addresses, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -34,7 +44,6 @@ def create_client_view(request):
         # Admin must provide collector ID
         if 'collector' not in data:
             return Response({'detail': 'Collector ID is required.'}, status=400)
-        pass
     else:
         return Response({'detail': 'Unauthorized role.'}, status=403)
 
@@ -49,6 +58,8 @@ def create_client_view(request):
 def get_clients_view(request):
     search = request.query_params.get('search')
     collector_id = request.query_params.get('collector')
+    status_filter = request.query_params.get('status')  # active/inactive
+    amount_filter = request.query_params.get('amount')  # fixed/variable
 
     # Admin sees all, Collector sees only their clients
     if request.user.role == 'admin':
@@ -60,33 +71,95 @@ def get_clients_view(request):
     else:
         return Response({'detail': 'Unauthorized role.'}, status=403)
 
-    # Apply search (name or phone)
+    # Apply search (name, phone, or unique_code)
     if search:
         clients = clients.filter(
             Q(name__icontains=search) |
-            Q(phone_number__icontains=search)
+            Q(phone_number__icontains=search) |
+            Q(unique_code__icontains=search)
         )
 
+    # Apply filters
+    if amount_filter:
+        if amount_filter == 'fixed':
+            clients = clients.filter(is_fixed=True)
+        elif amount_filter == 'variable':
+            clients = clients.filter(is_fixed=False)
+
+    # Order by creation date (newest first)
+    clients = clients.order_by('-created_at')
+
     paginator = PageNumberPagination()
-    paginted_clients = paginator.paginate_queryset(clients, request)
-    serializer = ClientModelSerializer(paginted_clients, many=True)
+    paginated_clients = paginator.paginate_queryset(clients, request)
+    serializer = ClientModelSerializer(paginated_clients, many=True)
     return paginator.get_paginated_response(serializer.data)
 
-#Get Client Info
-@api_view(['GET', 'PATCH'])
-def client_profile(request, id):
-    client_data = get_object_or_404(ClientModel, id=id)
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def client_detail(request, client_id):
+    client = get_object_or_404(ClientModel, id=client_id)
+    
+    # Check permissions
+    if request.user.role == 'collector' and client.collector != request.user:
+        return Response({'detail': 'You can only access your own clients.'}, status=403)
 
     if request.method == "GET":
-        serialized = ClientModelSerializer(instance=client_data)
-        return Response(data=serialized.data, status=status.HTTP_200_OK)
-    elif request.method == "PATCH":
-        data = request.data
-        client_data = ClientModel.objects.get(id=id)
-        serialized = ClientModelSerializer(data=data, instance=client_data, partial=True)
-        if serialized.is_valid():
-            serialized.save()
-            return Response(data=serialized.data, status=status.HTTP_202_ACCEPTED)
-        return Response(data={'error': 'Could not make changes'}, status=status.HTTP_406_NOT_ACCEPTABLE)
-        pass
-    pass
+        serializer = ClientModelSerializer(client)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    elif request.method in ["PUT", "PATCH"]:
+        # Only admins can update clients
+        if request.user.role != 'admin':
+            return Response({'detail': 'Only admins can update clients.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        serializer = ClientModelSerializer(client, data=request.data, partial=request.method == "PATCH")
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == "DELETE":
+        # Only admins can delete clients
+        if request.user.role != 'admin':
+            return Response({'detail': 'Only admins can delete clients.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        client.delete()
+        return Response({'detail': 'Client deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def assign_collector(request, client_id):
+    """Assign a client to a different collector"""
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can assign collectors.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    client = get_object_or_404(ClientModel, id=client_id)
+    collector_id = request.data.get('collector_id')
+    
+    if not collector_id:
+        return Response({'detail': 'Collector ID is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        collector = UserModel.objects.get(id=collector_id, role='collector')
+        client.collector = collector
+        client.save()
+        
+        serializer = ClientModelSerializer(client)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except UserModel.DoesNotExist:
+        return Response({'detail': 'Collector not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_available_collectors(request):
+    """Get list of available collectors for assignment"""
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can view collectors.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    collectors = UserModel.objects.filter(role='collector', is_active=True).values('id', 'username', 'email', 'assigned_zone')
+    return Response(collectors, status=status.HTTP_200_OK)
+
+# Legacy endpoint for backward compatibility
+@api_view(['GET', 'PATCH'])
+def client_profile(request, id):
+    return client_detail(request, id)
