@@ -23,6 +23,7 @@ export default function CollectorHome() {
   const [todayTotal, setTodayTotal] = useState(0);
   const [clientsVisited, setClientsVisited] = useState(0);
   const [recentCollections, setRecentCollections] = useState<{ id: string; clientName: string; amount: number; time: string; synced: boolean }[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -67,6 +68,28 @@ export default function CollectorHome() {
     router.push('/(collector)/history' as any);
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      dispatch(fetchClients());
+      const contribs = await contributionAPI.getContributions();
+      const items = (contribs || []).slice(0, 10).map((c: any) => ({
+        id: c.id,
+        clientName: c.client_name || c.client || 'Client',
+        amount: parseFloat(c.amount),
+        time: c.date || '',
+        synced: true,
+      }));
+      setRecentCollections(items);
+      setTodayTotal(items.reduce((sum, i) => sum + (isNaN(i.amount) ? 0 : i.amount), 0));
+      setClientsVisited(items.length);
+    } catch {
+      // Keep existing data on error
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <TouchableWithoutFeedback onPress={() => {
       if (menuVisible) setMenuVisible(false);
@@ -78,6 +101,8 @@ export default function CollectorHome() {
           id={user?.unique_code || ''}
           profilePhoto={require('../../assets/images/favicon.png')}
           onMenuPress={() => setMenuVisible(!menuVisible)}
+          onRefresh={handleRefresh}
+          refreshing={refreshing}
         />
 
         <ScrollView 

@@ -10,7 +10,8 @@ services:
     container_name: django-container
     command: python manage.py runserver 0.0.0.0:8000
     depends_on:
-      - db
+      db:
+        condition: service_healthy
   db:
     image: postgres
     volumes:
@@ -20,3 +21,8 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=11001
     container_name: postgres_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

@@ -7,9 +7,11 @@ interface HeaderProps {
   id: string;
   profilePhoto: any;
   onMenuPress: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }
 
-export const Header = ({ name, id, profilePhoto, onMenuPress }: HeaderProps) => {
+export const Header = ({ name, id, profilePhoto, onMenuPress, onRefresh, refreshing }: HeaderProps) => {
   return (
     <View style={styles.header}>
       <View style={styles.profileSection}>
@@ -24,6 +26,20 @@ export const Header = ({ name, id, profilePhoto, onMenuPress }: HeaderProps) => 
       </View>
       
       <View style={styles.headerIcons}>
+        {onRefresh && (
+          <TouchableOpacity 
+            style={styles.iconButton} 
+            onPress={onRefresh}
+            disabled={refreshing}
+          >
+            <MaterialCommunityIcons 
+              name="refresh" 
+              size={24} 
+              color={LogoColors.text.onPrimary} 
+              style={refreshing ? { transform: [{ rotate: '180deg' }] } : undefined}
+            />
+          </TouchableOpacity>
+        )}
         <TouchableOpacity 
           style={styles.iconButton} 
           onPress={onMenuPress}

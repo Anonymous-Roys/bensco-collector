@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import CustomTokenObtainPairView
+from .views import CustomTokenObtainPairView, get_worker_stats
 from . import views
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -12,4 +12,7 @@ urlpatterns = [
     path('update-user/<uuid:user_id>/', views.update_user, name='update_user'),
     path('delete-user/<uuid:user_id>/', views.delete_user, name='delete_user'),
     path('user/<uuid:user_id>/', views.get_user_detail, name='get_user_detail'),
+    path('check-deletion/<uuid:user_id>/', views.check_user_deletion, name='check_user_deletion'),
+    path('<uuid:user_id>/change-password/', views.change_password, name='change_password'),
+    path('stats/', get_worker_stats, name='worker-stats'),
 ]

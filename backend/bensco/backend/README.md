@@ -48,6 +48,6 @@ python manage.py shell
 from django.contrib.auth import get_user_model
 User = get_user_model()
 
-user = User.objects.get(username="bensco")
+user = User.objects.get(username="dave")
 user.role = "admin"   # update role
 user.save()

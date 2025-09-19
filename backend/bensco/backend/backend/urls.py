@@ -25,4 +25,5 @@ urlpatterns = [
     path('contributions/', view=include('contributions.urls')),
     path('', view=include('core.urls')),
     path('pay/', view=include('payouts.urls')),
+    path('notifications/', view=include('notifications.urls')),
 ]

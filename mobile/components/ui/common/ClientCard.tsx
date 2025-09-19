@@ -8,9 +8,10 @@ interface ClientCardProps {
   client: Client;
   onPress: () => void;
   onQuickCollect: () => void;
+  onRequestPayout?: () => void;
 }
 
-export const ClientCard: React.FC<ClientCardProps> = ({ client, onPress, onQuickCollect }) => {
+export const ClientCard: React.FC<ClientCardProps> = ({ client, onPress, onQuickCollect, onRequestPayout }) => {
   // For now, we'll show all clients as active since the backend doesn't provide status
   const status = 'active';
   const isCollectedToday = false; // We'll need to implement this based on contributions
@@ -81,12 +82,22 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, onPress, onQuick
               {status.toUpperCase()}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.quickCollectBtn}
-            onPress={onQuickCollect}
-          >
-            <MaterialCommunityIcons name="plus" size={16} color={LogoColors.primary.red} />
-          </TouchableOpacity>
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={styles.quickCollectBtn}
+              onPress={onQuickCollect}
+            >
+              <MaterialCommunityIcons name="plus" size={16} color={LogoColors.primary.red} />
+            </TouchableOpacity>
+            {onRequestPayout && (
+              <TouchableOpacity
+                style={styles.payoutBtn}
+                onPress={onRequestPayout}
+              >
+                <MaterialCommunityIcons name="cash" size={16} color={LogoColors.status.success} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
@@ -168,6 +179,10 @@ const styles = StyleSheet.create({
   statusSection: {
     alignItems: 'flex-end',
   },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -191,6 +206,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: LogoColors.primary.red,
+  },
+  payoutBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: LogoColors.background.tertiary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: LogoColors.status.success,
   },
   progressSection: {
     flexDirection: 'row',

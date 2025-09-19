@@ -1,14 +1,15 @@
 // API Configuration for Bensco Susu App
 export const API_CONFIG = {
   // Base URL - change this based on your environment
-  // BASE_URL: 'http://localhost:8000', // Development
-  BASE_URL: 'https://bensco-collector.onrender.com/', // Production
+  BASE_URL: 'https://bensco-collector.onrender.com', // Development
+  // BASE_URL: 'https://bensco-collector.onrender.com/', // Production
   
   // Auth endpoints
   AUTH: {
     LOGIN: '/auth/login/',
     REFRESH: '/auth/token/refresh/',
     RESET_REQUEST: '/auth/collector-password-reset-request/',
+    CHANGE_PASSWORD: '/auth/:user_id/change-password/',
   },
   
   // Client endpoints
@@ -29,6 +30,7 @@ export const API_CONFIG = {
   // Payout endpoints
   PAYOUTS: {
     REQUEST: '/payouts/request/',
+    REQUEST_CLIENT: '/payouts/request-client/:client_id/',
     APPROVE: '/payouts/approve/:id/',
     LIST: '/payouts/list/',
     REJECT: '/payouts/reject/:id/',

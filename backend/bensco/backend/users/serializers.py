@@ -8,6 +8,7 @@ class UserModelSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'username',
+            'full_name',
             'email',
             'role',
             'unique_code',
@@ -20,39 +21,39 @@ class UserModelSerializer(serializers.ModelSerializer):
             'updated_at',
         ]
         read_only_fields = ['id', 'unique_code', 'created_at', 'updated_at']
-    
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        refresh = self.get_token(self.user)
-
-        # Add custom claims
-        refresh["role"] = self.user.role
-        refresh["username"] = self.user.username
-        refresh["email"] = self.user.email
-        refresh["unique_code"] = self.user.unique_code
-        refresh["must_change_password"] = self.user.must_change_password
-
-        data["refresh"] = str(refresh)
-        data["access"] = str(refresh.access_token)
-        return data
 
 class CreateUserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+    
     class Meta:
         model = UserModel
-        fields = ['username', 'password', 'email', 'role', 'phone_number', 'assigned_zone', 'route_info']
+        fields = ['username', 'full_name', 'password', 'email', 'role', 'phone_number', 'assigned_zone', 'route_info']
         extra_kwargs = {
             'password': {'write_only': True}
         }
 
     def create(self, validated_data):
-        user = UserModel.objects.create_user(**validated_data)
+        password = validated_data.pop('password')
+        user = UserModel(**validated_data)
+        user.set_password(password)
+        user.save()
         return user
 
 class UpdateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserModel
-        fields = ['username', 'email', 'role', 'phone_number', 'assigned_zone', 'route_info', 'is_active']
+        fields = ['username', 'full_name', 'email', 'role', 'phone_number', 'assigned_zone', 'route_info', 'is_active']
         read_only_fields = ['id', 'unique_code', 'created_at', 'updated_at']
+    
+    def validate_email(self, value):
+        if value and UserModel.objects.filter(email=value).exclude(id=self.instance.id if self.instance else None).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+    
+    def validate_username(self, value):
+        if value and UserModel.objects.filter(username=value).exclude(id=self.instance.id if self.instance else None).exists():
+            raise serializers.ValidationError("A user with this username already exists.")
+        return value
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod

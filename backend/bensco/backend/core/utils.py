@@ -1,4 +1,6 @@
 import random
+import secrets
+import string
 from datetime import date, timedelta
 from savings.models import SavingsCycleModel
 from django.db.models import Sum
@@ -7,6 +9,33 @@ from django.db.models import Sum
 
 def generate_hex_id(length=5):
     return ''.join(random.choices('0123456789ABCDEF', k=length))
+
+def generate_secure_password(length=12):
+    """Generate a secure random password"""
+    import secrets
+    import string
+    
+    lowercase = string.ascii_lowercase
+    uppercase = string.ascii_uppercase
+    digits = string.digits
+    special = "!@#$%&*"
+    
+    # Ensure at least one character from each set
+    password = [
+        secrets.choice(lowercase),
+        secrets.choice(uppercase),
+        secrets.choice(digits),
+        secrets.choice(special)
+    ]
+    
+    # Fill the rest with random characters
+    all_chars = lowercase + uppercase + digits + special
+    for _ in range(length - 4):
+        password.append(secrets.choice(all_chars))
+    
+    # Shuffle the password list
+    secrets.SystemRandom().shuffle(password)
+    return ''.join(password)
 
 
 def generate_unique_code(model_class, role_prefix):

@@ -27,6 +27,32 @@ export const useAuth = () => {
     isOffline: false,
   });
 
+
+  const logout = useCallback(async () => {
+    try {
+      // Clear all stored data
+      await storageService.clearAuthData();
+      await storageService.clearCredentials();
+      
+      // Update auth state
+      setAuthState({
+        isAuthenticated: false,
+        user: null,
+        isLoading: false,
+        isOffline: false,
+      });
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Even if there's an error, we should still clear the state
+      setAuthState({
+        isAuthenticated: false,
+        user: null,
+        isLoading: false,
+        isOffline: false,
+      });
+    }
+  }, []);
+
   // Check authentication status on app start
   useEffect(() => {
     checkAuthStatus();
@@ -35,32 +61,25 @@ export const useAuth = () => {
   const checkAuthStatus = useCallback(async () => {
     try {
       const authData = await storageService.getAuthData();
-      
-      if (authData.accessToken && authData.userData) {
-        setAuthState({
-          isAuthenticated: true,
-          user: authData.userData,
-          isLoading: false,
-          isOffline: false,
-        });
-      } else {
-        setAuthState(prev => ({
-          ...prev,
-          isAuthenticated: false,
-          user: null,
-          isLoading: false,
-        }));
+      // If no accessToken or userData, log out
+      if (!authData.accessToken || !authData.userData) {
+        await logout();
+        Alert.alert('Session Expired', 'You have been logged out. Please log in again.');
+        return;
       }
+      // Optionally, you can add a check to validate token expiry here
+      setAuthState({
+        isAuthenticated: true,
+        user: authData.userData,
+        isLoading: false,
+        isOffline: false,
+      });
     } catch (error) {
       console.error('Error checking auth status:', error);
-      setAuthState(prev => ({
-        ...prev,
-        isAuthenticated: false,
-        user: null,
-        isLoading: false,
-      }));
+      await logout();
+      Alert.alert('Session Error', 'Unable to fetch user. You have been logged out.');
     }
-  }, []);
+  }, [logout]);
 
   const login = useCallback(async (credentials: LoginRequest, rememberMe: boolean = false) => {
     try {
@@ -96,30 +115,6 @@ export const useAuth = () => {
     }
   }, []);
 
-  const logout = useCallback(async () => {
-    try {
-      // Clear all stored data
-      await storageService.clearAuthData();
-      await storageService.clearCredentials();
-      
-      // Update auth state
-      setAuthState({
-        isAuthenticated: false,
-        user: null,
-        isLoading: false,
-        isOffline: false,
-      });
-    } catch (error) {
-      console.error('Error during logout:', error);
-      // Even if there's an error, we should still clear the state
-      setAuthState({
-        isAuthenticated: false,
-        user: null,
-        isLoading: false,
-        isOffline: false,
-      });
-    }
-  }, []);
 
   const offlineLogin = useCallback(async () => {
     try {

@@ -200,7 +200,7 @@ Content-Type: application/json
 
 # ###
 
-# PATCH http://localhost:8000/payouts/1/pay
+# PATCH http://localhost:8000/payouts/1/pays
 # Authorization: Bearer {{jwt_token}}
 
 # {}

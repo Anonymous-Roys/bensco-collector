@@ -17,15 +17,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { router } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-// import { authAPI, storageService } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
-
-// const { width, height } = Dimensions.get('window');
+import ChangePasswordScreen from '@/components/ChangePasswordScreen';
 
 type RootStackParamList = {
   Login: undefined;
   Home: undefined;
-  // Add other screens here
 };
 
 interface LoginScreenProps {
@@ -46,16 +43,16 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
   const [resetPhone, setResetPhone] = useState<string>('');
 
   // Use auth hook
-  const { login, offlineLogin, requestPasswordReset, getSavedCredentials, isLoading } = useAuth();
+  const { login, offlineLogin, requestPasswordReset, getSavedCredentials, isLoading, user } = useAuth();
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
-  // const router = useRouter();
-  // Simulate network status
- useEffect(() => {
-  const unsubscribe = NetInfo.addEventListener(state => {
-    setIsOffline(!state.isConnected);
-  });
-  return () => unsubscribe();
-}, []);
+  // Network status
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener(state => {
+      setIsOffline(!state.isConnected);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Load saved credentials on component mount
   useEffect(() => {
@@ -92,7 +89,6 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
     return emailRegex.test(email);
   };
 
-
   const handleLogin = async (): Promise<void> => {
     if (isBlocked) {
       Alert.alert(
@@ -100,7 +96,6 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
         `Please wait ${blockTimer} seconds before trying again.`,
         [{ text: "OK" }]
       );
-      
       return;
     }
 
@@ -115,16 +110,18 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
     }
 
     try {
-      // Use auth hook for login
       const result = await login({ email, password }, rememberMe);
       
       if (result.success) {
-        // Success - navigate to main app
-        console.log("🔑 Login successful, navigating to tabs...");
-        router.replace('/(tabs)');
+        // Check if user must change password
+        if (user && user.must_change_password) {
+          setShowChangePassword(true);
+        } else {
+          console.log("🔑 Login successful, navigating to tabs...");
+          router.replace('/(tabs)');
+        }
         setLoginAttempts(0);
       } else {
-        // Handle login failure
         const newAttempts = loginAttempts + 1;
         setLoginAttempts(newAttempts);
         
@@ -150,7 +147,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
       
       if (newAttempts >= 5) {
         setIsBlocked(true);
-        setBlockTimer(300); // 5 minutes block
+        setBlockTimer(300);
         Alert.alert(
           "Account Locked",
           "Too many failed attempts. Your account has been temporarily locked for 5 minutes.",
@@ -202,18 +199,14 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
       Alert.alert("Missing Information", "Please enter either your email or phone number.");
       return;
     }
-
     try {
       const result = await requestPasswordReset(identifier);
-      
       if (result.success) {
         Alert.alert(
           "Reset Request Sent",
           "Your password reset request has been sent to the admin. You will receive new login credentials within 24 hours.",
           [{ text: "OK", onPress: () => setShowForgotPassword(false) }]
         );
-        
-        // Clear form
         setResetEmail('');
         setResetPhone('');
       } else {
@@ -274,12 +267,20 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
             style={styles.submitButton}
             onPress={submitPasswordReset}
           >
-            <Text style={styles.submitButtonText}>Send Request</Text>
+            <Text style={styles.submitButtonText}>Submit Request</Text>
           </TouchableOpacity>
         </View>
       </View>
     </View>
   );
+
+  // Show change password screen if required
+  if (showChangePassword) {
+    return <ChangePasswordScreen onPasswordChanged={() => {
+      setShowChangePassword(false);
+      router.replace('/(tabs)');
+    }} />;
+  }
 
   return (
     <KeyboardAvoidingView 
@@ -299,7 +300,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
           {isOffline ? 'Offline Mode' : 'Connected'}
         </Text>
       </View>
-
+      
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
@@ -309,7 +310,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
           </View>
           <Text style={styles.welcomeText}>Field Worker Login</Text>
         </View>
-
+        
         {/* Login Form */}
         <View style={styles.formContainer}>
           {/* Email Input */}
@@ -326,7 +327,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               editable={!isLoading && !isBlocked}
             />
           </View>
-
+          
           {/* Password Input */}
           <View style={styles.inputContainer}>
             <MaterialCommunityIcons name="lock-outline" size={20} color={Colors.light.text.secondary} />
@@ -351,7 +352,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               )}
             </TouchableOpacity>
           </View>
-
+          
           {/* Remember Me */}
           <TouchableOpacity 
             style={styles.rememberContainer}
@@ -362,7 +363,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
             </View>
             <Text style={styles.rememberText}>Remember me for 7 days</Text>
           </TouchableOpacity>
-
+          
           {/* Login Attempts Warning */}
           {loginAttempts > 0 && !isBlocked && (
             <View style={styles.warningContainer}>
@@ -371,7 +372,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               </Text>
             </View>
           )}
-
+          
           {/* Block Timer */}
           {isBlocked && (
             <View style={styles.errorContainer}>
@@ -380,7 +381,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               </Text>
             </View>
           )}
-
+          
           {/* Login Button */}
           <TouchableOpacity 
             style={[
@@ -398,7 +399,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               </Text>
             )}
           </TouchableOpacity>
-
+          
           {/* Forgot Password */}
           <TouchableOpacity 
             style={styles.forgotButton}
@@ -408,16 +409,9 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               Forgot Password? Request Reset
             </Text>
           </TouchableOpacity>
-
-          {/* Demo Credentials */}
-          <View style={styles.demoContainer}>
-            <Text style={styles.demoTitle}>Demo Credentials:</Text>
-            <Text style={styles.demoText}>Email: davidarhin2005@gmail.com</Text>
-            <Text style={styles.demoText}>Password: davelled</Text>
-          </View>
         </View>
       </ScrollView>
-
+      
       {/* Forgot Password Modal */}
       {showForgotPassword && <ForgotPasswordModal />}
     </KeyboardAvoidingView>
@@ -618,28 +612,6 @@ const styles = StyleSheet.create({
     color: Colors.light.secondary.navy,
     fontSize: 16,
     fontWeight: '500',
-  },
-  
-  demoContainer: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: Colors.light.neutral.cream,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.light.accent.gold,
-  },
-  
-  demoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.light.text.primary,
-    marginBottom: 8,
-  },
-  
-  demoText: {
-    fontSize: 12,
-    color: Colors.light.text.secondary,
-    fontFamily: 'monospace',
   },
   
   // Modal Styles

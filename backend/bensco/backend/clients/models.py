@@ -20,7 +20,7 @@ class ClientModel(models.Model):
     unique_code = models.CharField(max_length=20, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255)
     phone_number = models.CharField(max_length=20, blank=True, null=True)
-    collector = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name='clients')
+    collector = models.ForeignKey(UserModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='clients')
     address = models.ForeignKey(AddressModel, on_delete=models.SET_NULL, null=True, blank=True, related_name='clients')
     dob = models.DateField(blank=True, null=True)
     amount_daily = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

@@ -108,15 +108,29 @@ def client_detail(request, client_id):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ["PUT", "PATCH"]:
-        # Only admins can update clients
-        if request.user.role != 'admin':
-            return Response({'detail': 'Only admins can update clients.'}, status=status.HTTP_403_FORBIDDEN)
+        # Collectors can update their own clients, admins can update any client
+        if request.user.role == 'collector' and client.collector != request.user:
+            return Response({'detail': 'You can only update your own clients.'}, status=status.HTTP_403_FORBIDDEN)
+        elif request.user.role not in ['admin', 'collector']:
+            return Response({'detail': 'Unauthorized role.'}, status=status.HTTP_403_FORBIDDEN)
         
+        # Use basic serializer for updates
         serializer = ClientModelSerializer(client, data=request.data, partial=request.method == "PATCH")
+            
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                serializer.save()
+                # Return full client data
+                response_serializer = ClientModelSerializer(client)
+                return Response(response_serializer.data, status=status.HTTP_200_OK)
+            except Exception as e:
+                import traceback
+                print(f"Client update error: {str(e)}")
+                print(f"Traceback: {traceback.format_exc()}")
+                return Response({'detail': f'Error saving client: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            print(f"Serializer errors: {serializer.errors}")
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == "DELETE":
         # Only admins can delete clients

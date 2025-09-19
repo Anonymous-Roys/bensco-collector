@@ -10,10 +10,16 @@ class PayoutModel(models.Model):
         APPROVED = 'approved', 'Approved'
         REJECTED = 'rejected', 'Rejected'
         PAID = 'paid', 'Paid'
+    
+    class PayoutTypeChoices(models.TextChoices):
+        CLIENT_SPECIFIC = 'client_specific', 'Client Specific'
+        BULK = 'bulk', 'Bulk Payout'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    client = models.ForeignKey(ClientModel, on_delete=models.CASCADE)
-    cycle = models.OneToOneField(SavingsCycleModel, on_delete=models.CASCADE)
+    client = models.ForeignKey(ClientModel, on_delete=models.CASCADE, null=True, blank=True)  # Optional for client-specific payouts
+    cycle = models.ForeignKey(SavingsCycleModel, on_delete=models.CASCADE, null=True, blank=True)  # Optional for bulk payouts
+    
+    payout_type = models.CharField(max_length=20, choices=PayoutTypeChoices.choices, default=PayoutTypeChoices.BULK)
     
     total_paid = models.DecimalField(max_digits=10, decimal_places=2)
     commission = models.DecimalField(max_digits=10, decimal_places=2)
@@ -32,8 +38,14 @@ class PayoutModel(models.Model):
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['client', 'cycle'], name='one_payout_per_cycle')
+            models.UniqueConstraint(
+                fields=['client', 'cycle'], 
+                condition=models.Q(payout_type='client_specific'),
+                name='one_payout_per_client_cycle'
+            )
         ]
 
     def __str__(self):
-        return f"{self.client.name} - {self.net_payout} ({self.status})"
+        if self.payout_type == self.PayoutTypeChoices.CLIENT_SPECIFIC:
+            return f"{self.client.name} - ₵{self.net_payout} ({self.status})"
+        return f"Bulk Payout - ₵{self.net_payout} ({self.status})"

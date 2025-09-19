@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { LogoColors } from '@/constants/Colors';
 import { Client } from '@/constants/types';
 
@@ -37,6 +37,28 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
     };
 
     const dailyAmount = getDailyAmount();
+
+    const handleCollectWithConfirmation = () => {
+        if (!amount || parseFloat(amount) <= 0) {
+            Alert.alert('Invalid Amount', 'Please enter a valid amount');
+            return;
+        }
+
+        Alert.alert(
+            'Confirm Collection',
+            `Collect GHS ${amount} from ${getClientName()}?`,
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel'
+                },
+                {
+                    text: 'Collect',
+                    onPress: onCollect
+                }
+            ]
+        );
+    };
 
     return (
         <View style={styles.modalOverlay}>
@@ -94,7 +116,7 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
 
                     <TouchableOpacity
                         style={[styles.modalActionBtn, styles.collectBtn, loading && styles.disabledBtn]}
-                        onPress={onCollect}
+                        onPress={handleCollectWithConfirmation}
                         disabled={loading}
                     >
                         <Text style={styles.collectBtnText}>

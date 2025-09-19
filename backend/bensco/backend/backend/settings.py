@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'payouts',
     'savings',
     'users',
+    'notifications.apps.NotificationsConfig',
     'rest_framework',
 
 ]
@@ -92,7 +93,7 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
      "default": dj_database_url.config(
-        default="postgresql://postgres:1575461@localhost:5432/bsl_db"  # local fallback
+        default="postgresql://postgres:11001@db:5432/bsl_db"  # docker compose db service
     )
     # 'default': {
 

@@ -5,6 +5,7 @@ from .serializers import PayoutModelSerializer
 from rest_framework.response import Response
 from .models import PayoutModel
 from django.utils import timezone
+from django.db.models import Count
 
 # Create your views here.
 @api_view(['POST'])
@@ -93,3 +94,73 @@ def mark_payout_paid(request, payout_id):
     payout.save()
 
     return Response({'message': 'Payout marked as paid'}, status=200)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_payout_stats(request):
+    """Get statistics about payouts"""
+    if request.user.role != 'admin':
+        return Response({'detail': 'Not authorized'}, status=403)
+    
+    pending_count = PayoutModel.objects.filter(status=PayoutModel.StatusChoices.PENDING).count()
+    
+    return Response({
+        'pending_count': pending_count
+    })
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def request_client_payout(request, client_id):
+    """Request payout for a specific client"""
+    if request.user.role != 'collector':
+        return Response({'detail': 'Only collectors can request payouts.'}, status=403)
+    
+    try:
+        from clients.models import ClientModel
+        from contributions.models import ContributionModel
+        from django.db.models import Sum
+        
+        client = ClientModel.objects.get(id=client_id, collector=request.user)
+        
+        # Check if there's already a pending payout for this client
+        existing_payout = PayoutModel.objects.filter(
+            client=client,
+            requested_by=request.user,
+            status__in=['pending', 'approved'],
+            payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC
+        ).exists()
+        
+        if existing_payout:
+            return Response({'detail': 'A payout request for this client is already pending.'}, status=400)
+        
+        # Calculate total collections for this client
+        total_collected = ContributionModel.objects.filter(
+            client=client,
+            collector=request.user
+        ).aggregate(total=Sum('amount'))['total'] or 0
+        
+        if total_collected <= 0:
+            return Response({'detail': 'No collections found for this client.'}, status=400)
+        
+        # Calculate commission (e.g., 10%)
+        commission_rate = 0.10
+        commission = total_collected * commission_rate
+        net_payout = total_collected - commission
+        
+        # Create payout request
+        payout = PayoutModel.objects.create(
+            client=client,
+            payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC,
+            total_paid=total_collected,
+            commission=commission,
+            net_payout=net_payout,
+            requested_by=request.user
+        )
+        
+        serializer = PayoutModelSerializer(payout)
+        return Response(serializer.data, status=201)
+        
+    except ClientModel.DoesNotExist:
+        return Response({'detail': 'Client not found or not assigned to you.'}, status=404)
+    except Exception as e:
+        return Response({'detail': f'Error creating payout request: {str(e)}'}, status=400)

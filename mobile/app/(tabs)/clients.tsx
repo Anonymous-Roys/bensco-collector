@@ -11,6 +11,7 @@ import {
   Alert,
   RefreshControl,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -100,6 +101,30 @@ export default function ClientsScreen() {
       setCollectAmount('');
     } catch (error) {
       Alert.alert('Error', 'Failed to create contribution. Please try again.');
+    }
+  };
+
+  // Handle payout request
+  const handleRequestPayout = async (client: Client) => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await fetch(`https://bensco-collector.onrender.com/pay/request-client/${client.id}/`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        Alert.alert('Success', `Payout request submitted for ${client.name}`);
+      } else {
+        Alert.alert('Error', data.detail || 'Failed to request payout');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to request payout. Please try again.');
     }
   };
 
@@ -230,6 +255,7 @@ export default function ClientsScreen() {
               setSelectedClient(item);
               setShowQuickCollectModal(true);
             }}
+            onRequestPayout={() => handleRequestPayout(item)}
           />
         )}
         style={styles.clientList}

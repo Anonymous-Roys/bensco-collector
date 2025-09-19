@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from core.utils import generate_unique_code, generate_hex_id
+import secrets
+import string
 import uuid
 
 
@@ -30,6 +32,7 @@ class UserModel(AbstractUser):
     email = models.EmailField(blank=True, null=True, unique=True)
     
     # Collector specific fields
+    full_name = models.CharField(max_length=100, blank=True, null=True, help_text="Full name of the worker/collector")
     phone_number = models.CharField(max_length=20, blank=True, null=True, help_text="Phone number for the collector")
     assigned_zone = models.CharField(max_length=100, blank=True, null=True, help_text="Zone assigned to the collector")
     route_info = models.TextField(blank=True, null=True, help_text="Additional route information for the collector")
@@ -46,11 +49,7 @@ class UserModel(AbstractUser):
     
     def save(self, *args, **kwargs):
         if not self.unique_code and self.role:
-            prefix = {
-                'admin': 'ADM',
-                'collector': 'COL'
-            }.get(self.role, 'UNK')
-            self.unique_code = generate_unique_code(UserModel, prefix)
+            self.unique_code = generate_user_code(self.role)
         super().save(*args, **kwargs)
 
 class AuthLogModel(models.Model):
@@ -70,12 +69,6 @@ class AuthLogModel(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.action}"
-
-
-    def save(self, *args, **kwargs):
-        if not self.unique_code and self.role:
-            self.unique_code = generate_user_code(self.role)
-        super().save(*args, **kwargs)
 
 
 class PasswordResetRequestModel(models.Model):
