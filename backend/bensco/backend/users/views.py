@@ -13,7 +13,6 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Count
 from django.utils import timezone
 from datetime import timedelta
-from utils.email_service import send_credentials_email_async
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):

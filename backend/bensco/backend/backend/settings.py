@@ -177,7 +177,7 @@ SIMPLE_JWT = {
 
 ## Email Settings
 
-EMAIL_PROVIDER = "smtp"   # or "api"
+EMAIL_PROVIDER = "api"   # or "api"
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_USE_TLS = True
 # EMAIL_HOST_PASSWORD = "rjno wyfa jbip kfsi"  # App password here
