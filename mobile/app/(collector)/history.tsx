@@ -47,9 +47,26 @@ export default function CollectionHistory() {
     return map;
   }, [clients]);
 
-  const totalCollected = useMemo(() => {
-    return contributions.reduce((sum, c) => sum + (parseFloat(c.amount) || 0), 0);
-  }, [contributions]);
+const totalCollected = useMemo(() => {
+  const today = new Date().toDateString();
+  console.log('Today:', today);
+  
+  const result = contributions.reduce((sum, c) => {
+    const dateString = c.created_at;
+    const contributionDate = new Date(dateString).toDateString();
+    const amount = parseFloat(c.amount) || 0;
+    const isToday = contributionDate === today;
+    
+    if (isToday) {
+      console.log('Included contribution:', { amount, date: contributionDate });
+    }
+    
+    return isToday ? sum + amount : sum;
+  }, 0);
+  
+  console.log('Total collected today:', result);
+  return result;
+}, [contributions]);
 
   const pendingCollections = 0; // Backend doesn't expose status in Contribution
 
@@ -118,13 +135,13 @@ export default function CollectionHistory() {
         backgroundColor={LogoColors.status.success}
       />
           
-          <MetricCard
+          {/* <MetricCard
         icon="clock"
         value={pendingCollections.toString()}
         label="Pending"
         // backgroundColor={[styles.summaryValue, { color: LogoColors.status.warning }]}
         backgroundColor={LogoColors.status.warning }
-      />
+      /> */}
         </View>
       </View>
 

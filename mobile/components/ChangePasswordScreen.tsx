@@ -6,7 +6,7 @@ import { API_CONFIG } from '@/constants/api';
 import { Colors } from '@/constants/Colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ChangePasswordScreen: React.FC<{ onPasswordChanged?: () => void }> = ({ onPasswordChanged }) => {
+const ChangePasswordScreen: React.FC<{ onPasswordChanged?: () => void; onBackPress?: () => void }> = ({ onPasswordChanged, onBackPress }) => {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -67,6 +67,18 @@ const ChangePasswordScreen: React.FC<{ onPasswordChanged?: () => void }> = ({ on
       
       {/* Header */}
       <View style={styles.header}>
+        {/* Back Button */}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={onBackPress}
+        >
+          <MaterialCommunityIcons 
+            name="arrow-left" 
+            size={24} 
+            color={Colors.light.text.onPrimary} 
+          />
+        </TouchableOpacity>
+
         <View style={styles.logoContainer}>
           <Text style={styles.logoText}>BENSCO</Text>
           <Text style={styles.logoSubtext}>SUSU LIMITED</Text>
@@ -175,6 +187,15 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     paddingHorizontal: 30,
     alignItems: 'center',
+    position: 'relative',
+  },
+
+  backButton: {
+    position: 'absolute',
+    top: 60,
+    left: 20,
+    padding: 10,
+    zIndex: 1,
   },
   
   logoContainer: {

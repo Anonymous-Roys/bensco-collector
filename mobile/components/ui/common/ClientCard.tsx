@@ -89,14 +89,14 @@ export const ClientCard: React.FC<ClientCardProps> = ({ client, onPress, onQuick
             >
               <MaterialCommunityIcons name="plus" size={16} color={LogoColors.primary.red} />
             </TouchableOpacity>
-            {onRequestPayout && (
+            {/* {onRequestPayout && (
               <TouchableOpacity
                 style={styles.payoutBtn}
                 onPress={onRequestPayout}
               >
                 <MaterialCommunityIcons name="cash" size={16} color={LogoColors.status.success} />
               </TouchableOpacity>
-            )}
+            )} */}
           </View>
         </View>
       </View>

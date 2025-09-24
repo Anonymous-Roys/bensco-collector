@@ -203,12 +203,13 @@ CORS_ALLOW_ALL_ORIGINS = True  # For development only - change in production
 CORS_ALLOW_CREDENTIALS = True
 
 # Allowed origins for production (uncomment and modify as needed)
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:8081",
-#     "http://localhost:3000",
-#     "http://127.0.0.1:8081",
-#     "http://127.0.0.1:3000",
-# ]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8081",
+    "http://localhost:3000",
+    "http://127.0.0.1:8081",
+    "http://127.0.0.1:3000",
+    "https://bensco-susu-admin.vercel.app",   # your Vercel frontend
+]
 
 # Allowed methods
 CORS_ALLOW_METHODS = [

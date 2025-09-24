@@ -76,8 +76,13 @@ def create_user(request):
     # Generate secure password if not provided
     from core.utils import generate_secure_password
     data = request.data.copy()
+    temp_password = None
+    
     if not data.get('password'):
-        data['password'] = generate_secure_password()
+        temp_password = generate_secure_password()
+        data['password'] = temp_password
+    else:
+        temp_password = data.get('password')
     
     # Set default role to collector if not provided
     if not data.get('role'):
@@ -86,63 +91,18 @@ def create_user(request):
     serializer = CreateUserSerializer(data=data)
     if serializer.is_valid():
         try:
-            # Store password before hashing for email
-            temp_password = data.get('password')
             user = serializer.save()
+            email_queued = False
             
-            # Send credentials email only if email exists
-            if user.email:
-                subject = 'Welcome to Bensco Susu - Your Account is Ready!'
-                html_message = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Welcome to Bensco Susu</title>
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-        <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 40px 30px; text-align: center;">
-            <h1 style="color: #ffffff; font-size: 32px; font-weight: bold; margin: 0; letter-spacing: 2px;">BENSCO</h1>
-            <p style="color: #fecaca; font-size: 14px; font-weight: 600; margin: 4px 0 0 0;">SUSU LIMITED</p>
-        </div>
-        <div style="padding: 40px 30px;">
-            <h2 style="color: #1f2937; font-size: 24px; font-weight: 600; margin: 0 0 20px 0;">Welcome, {user.full_name or user.username}!</h2>
-            <p style="color: #6b7280; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">Your collector account has been successfully created.</p>
-            <div style="background-color: #f9fafb; border-radius: 12px; padding: 24px; margin: 30px 0; border-left: 4px solid #dc2626;">
-                <h3 style="color: #1f2937; font-size: 18px; font-weight: 600; margin: 0 0 16px 0;">🔑 Your Login Credentials</h3>
-                <div style="margin-bottom: 12px;"><strong>Username:</strong> {user.username}</div>
-                <div style="margin-bottom: 12px;"><strong>Email:</strong> {user.email}</div>
-                <div style="margin-bottom: 12px;"><strong>Employee ID:</strong> {user.unique_code}</div>
-                <div><strong>Password:</strong> {temp_password}</div>
-            </div>
-            <div style="background-color: #fef3c7; border-radius: 8px; padding: 16px; margin: 20px 0;">
-                <p style="color: #92400e; font-size: 14px; margin: 0;">🔒 Please change your password after first login.</p>
-            </div>
-        </div>
-        <div style="background-color: #1f2937; padding: 20px 30px; text-align: center;">
-            <p style="color: #9ca3af; font-size: 12px; margin: 0;">© 2024 Bensco Susu Limited</p>
-        </div>
-    </div>
-</body>
-</html>
-                """
-                
+            # Send credentials email asynchronously
+            if user.email and temp_password:
                 try:
-                    from django.core.mail import EmailMultiAlternatives
-                    msg = EmailMultiAlternatives(
-                        subject=subject,
-                        body=f"Welcome {user.full_name or user.username}! Username: {user.username}, Password: {temp_password}",
-                        from_email=settings.DEFAULT_FROM_EMAIL,
-                        to=[user.email]
-                    )
-                    msg.attach_alternative(html_message, "text/html")
-                    msg.send()
+                    from utils.email_service import send_credentials_email_async
+                    email_queued = send_credentials_email_async(user, temp_password)
                 except Exception as e:
-                    print(f"Error sending credentials email: {e}")
-                    # Don't fail user creation if email fails
+                    print(f"Email queueing failed: {e}")
             
-            return Response({
+            response_data = {
                 'id': user.id,
                 'username': user.username,
                 'email': user.email,
@@ -155,12 +115,21 @@ def create_user(request):
                 'is_active': user.is_active,
                 'created_at': user.created_at,
                 'updated_at': user.updated_at,
-                'message': 'User created successfully. Credentials sent via email.' if user.email else 'User created successfully.'
-            }, status=status.HTTP_201_CREATED)
+                'temporary_password': temp_password,  # Always return password for manual delivery
+                'message': 'User created successfully.' + (
+                    ' Email has been queued for delivery.' if email_queued else
+                    ' Email delivery queued. Please provide password manually if email fails.'
+                )
+            }
+            
+            return Response(response_data, status=status.HTTP_201_CREATED)
+            
         except Exception as e:
             return Response({'detail': f'Error creating user: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])

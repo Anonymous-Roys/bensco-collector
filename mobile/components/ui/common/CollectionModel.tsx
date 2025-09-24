@@ -1,5 +1,17 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+    View, 
+    Text, 
+    StyleSheet, 
+    TouchableOpacity, 
+    TextInput, 
+    Alert, 
+    KeyboardAvoidingView, 
+    Platform,
+    Keyboard,
+    ScrollView,
+    Dimensions
+} from 'react-native';
 import { LogoColors } from '@/constants/Colors';
 import { Client } from '@/constants/types';
 
@@ -22,6 +34,32 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
     manualClientName,
     loading = false
 }) => {
+    const [keyboardVisible, setKeyboardVisible] = useState(false);
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    const screenHeight = Dimensions.get('window').height;
+
+    useEffect(() => {
+        const keyboardDidShowListener = Keyboard.addListener(
+            'keyboardDidShow',
+            (e) => {
+                setKeyboardVisible(true);
+                setKeyboardHeight(e.endCoordinates.height);
+            }
+        );
+        const keyboardDidHideListener = Keyboard.addListener(
+            'keyboardDidHide',
+            () => {
+                setKeyboardVisible(false);
+                setKeyboardHeight(0);
+            }
+        );
+
+        return () => {
+            keyboardDidHideListener?.remove();
+            keyboardDidShowListener?.remove();
+        };
+    }, []);
+
     const getClientName = () => {
         if (typeof client === 'object' && client !== null && 'name' in client) {
             return client.name;
@@ -61,71 +99,93 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
     };
 
     return (
-        <View style={styles.modalOverlay}>
-            <View style={styles.quickCollectModal}>
-                <Text style={styles.quickCollectTitle}>Quick Collection</Text>
-                {client && (
-                    <Text style={styles.quickCollectSubtitle}>
-                        Collecting from {getClientName()}
-                    </Text>
-                )}
-
-                <View style={styles.amountInput}>
-                    <Text style={styles.currencySymbol}>Amount Collected (GHS)</Text>
-                    <TextInput
-                        style={styles.amountTextInput}
-                        value={amount}
-                        onChangeText={onAmountChange}
-                        placeholder="0.00"
-                        keyboardType="numeric"
-                        autoFocus
-                    />
-                </View>
-
-                {dailyAmount > 0 && (
-                    <View style={styles.quickAmounts}>
-                        <Text style={styles.quickAmountsTitle}>Quick Amounts</Text>
-                        <View style={styles.quickAmountButtons}>
-                        {[
-                            dailyAmount,
-                            dailyAmount * 2,
-                            dailyAmount * 5,
-                            100
-                        ].map((amount) => (
-                            <TouchableOpacity
-                                key={amount}
-                                style={styles.quickAmountBtn}
-                                onPress={() => onAmountChange(amount.toString())}
-                            >
-                                <Text style={styles.quickAmountText}>
-                                    GHS {amount}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </View>
-                    </View>
-                )}
-
-                <View style={styles.modalActions}>
-                    <TouchableOpacity
-                        style={[styles.modalActionBtn, styles.cancelBtn]}
-                        onPress={onClose}
-                    >
-                        <Text style={styles.cancelBtnText}>Cancel</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.modalActionBtn, styles.collectBtn, loading && styles.disabledBtn]}
-                        onPress={handleCollectWithConfirmation}
-                        disabled={loading}
-                    >
-                        <Text style={styles.collectBtnText}>
-                            {loading ? 'Collecting...' : 'Collect'}
+        <KeyboardAvoidingView 
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+            <ScrollView 
+                contentContainerStyle={[
+                    styles.scrollContainer,
+                    keyboardVisible && {
+                        paddingBottom: keyboardHeight + 20,
+                        justifyContent: 'flex-start',
+                        paddingTop: Math.max(50, (screenHeight - keyboardHeight - 400) / 2)
+                    }
+                ]}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
+                <View style={[
+                    styles.quickCollectModal,
+                    keyboardVisible && styles.quickCollectModalKeyboard
+                ]}>
+                    <Text style={styles.quickCollectTitle}>Quick Collection</Text>
+                    {client && (
+                        <Text style={styles.quickCollectSubtitle}>
+                            Collecting from {getClientName()}
                         </Text>
-                    </TouchableOpacity>
+                    )}
+
+                    <View style={styles.amountInput}>
+                        <Text style={styles.currencySymbol}>Amount Collected (GHS)</Text>
+                        <TextInput
+                            style={styles.amountTextInput}
+                            value={amount}
+                            onChangeText={onAmountChange}
+                            placeholder="0.00"
+                            keyboardType="numeric"
+                            autoFocus
+                            returnKeyType="done"
+                            onSubmitEditing={Keyboard.dismiss}
+                        />
+                    </View>
+
+                    {dailyAmount > 0 && !keyboardVisible && (
+                        <View style={styles.quickAmounts}>
+                            <Text style={styles.quickAmountsTitle}>Quick Amounts</Text>
+                            <View style={styles.quickAmountButtons}>
+                            {[
+                                dailyAmount,
+                                dailyAmount * 2,
+                                dailyAmount * 5,
+                                100
+                            ].map((amount) => (
+                                <TouchableOpacity
+                                    key={amount}
+                                    style={styles.quickAmountBtn}
+                                    onPress={() => onAmountChange(amount.toString())}
+                                >
+                                    <Text style={styles.quickAmountText}>
+                                        GHS {amount}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        </View>
+                    )}
+
+                    <View style={styles.modalActions}>
+                        <TouchableOpacity
+                            style={[styles.modalActionBtn, styles.cancelBtn]}
+                            onPress={onClose}
+                        >
+                            <Text style={styles.cancelBtnText}>Cancel</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.modalActionBtn, styles.collectBtn, loading && styles.disabledBtn]}
+                            onPress={handleCollectWithConfirmation}
+                            disabled={loading}
+                        >
+                            <Text style={styles.collectBtnText}>
+                                {loading ? 'Collecting...' : 'Collect'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
-        </View>
+            </ScrollView>
+        </KeyboardAvoidingView>
     );
 };
 
@@ -133,14 +193,22 @@ const styles = StyleSheet.create({
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    scrollContainer: {
+        flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        paddingHorizontal: 20,
     },
     quickCollectModal: {
         backgroundColor: LogoColors.background.surface,
         borderRadius: 16,
-        width: '90%',
+        width: '100%',
+        maxWidth: 400,
         padding: 24,
+    },
+    quickCollectModalKeyboard: {
+        marginTop: 0,
     },
     quickCollectTitle: {
         fontSize: 20,

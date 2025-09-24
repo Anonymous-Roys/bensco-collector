@@ -8,11 +8,10 @@ import { QuickActions } from '@/components/home/QuickActions';
 import { RecentCollections } from '@/components/home/RecentCollections';
 import { MenuOverlay } from '@/components/home/MenuOverlay';
 import { ActionButtons } from '@/components/home/ActionButtons';
-import { storageService } from '@/services/api';
+import { storageService, contributionAPI } from '@/services/api';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store';
 import { fetchClients } from '@/store/slices/clientSlice';
-import { contributionAPI } from '@/services/api';
 
 export default function CollectorHome() {
   const dispatch = useDispatch<AppDispatch>();
@@ -25,6 +24,49 @@ export default function CollectorHome() {
   const [recentCollections, setRecentCollections] = useState<{ id: string; clientName: string; amount: number; time: string; synced: boolean }[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
+
+  const processContributions = (contributions: any[]) => {
+    const today = new Date().toDateString();
+    
+    // Filter contributions from today only
+    const todaysContributions = contributions.filter((c: any) => {
+      const contributionDate = new Date(c.date || c.createdAt || c.timestamp).toDateString();
+      return contributionDate === today;
+    });
+
+    // Calculate today's total
+    const todayTotalAmount = todaysContributions.reduce((sum: number, c: any) => {
+      return sum + (parseFloat(c.amount) || 0);
+    }, 0);
+
+    // Get unique clients visited today (using client_id or client_name)
+    const uniqueClientIds = new Set();
+    todaysContributions.forEach((c: any) => {
+      // Use client_id if available, otherwise fall back to client_name
+      const clientIdentifier = c.client_id || c.client_name || c.client;
+      if (clientIdentifier) {
+        uniqueClientIds.add(clientIdentifier);
+      }
+    });
+
+    const uniqueClientsCount = Math.min(uniqueClientIds.size, totalCount || 0);
+
+    // Get recent collections (all contributions, not just today's)
+    const recentItems = contributions.slice(0, 10).map((c: any) => ({
+      id: c.id,
+      clientName: c.client_name || c.client || 'Client',
+      amount: parseFloat(c.amount) || 0,
+      time: c.date || '',
+      synced: true,
+    }));
+
+    return {
+      todayTotal: todayTotalAmount,
+      clientsVisited: uniqueClientsCount,
+      recentCollections: recentItems
+    };
+  };
+
   useEffect(() => {
     const init = async () => {
       const auth = await storageService.getAuthData();
@@ -32,17 +74,11 @@ export default function CollectorHome() {
       dispatch(fetchClients());
       try {
         const contribs = await contributionAPI.getContributions();
-        // Basic mapping for recent list and metrics
-        const items = (contribs || []).slice(0, 10).map((c: any) => ({
-          id: c.id,
-          clientName: c.client_name || c.client || 'Client',
-          amount: parseFloat(c.amount),
-          time: c.date || '',
-          synced: true,
-        }));
-        setRecentCollections(items);
-        setTodayTotal(items.reduce((sum, i) => sum + (isNaN(i.amount) ? 0 : i.amount), 0));
-        setClientsVisited(items.length);
+        const processedData = processContributions(contribs || []);
+        
+        setTodayTotal(processedData.todayTotal);
+        setClientsVisited(processedData.clientsVisited);
+        setRecentCollections(processedData.recentCollections);
       } catch {
         setRecentCollections([]);
         setTodayTotal(0);
@@ -50,7 +86,7 @@ export default function CollectorHome() {
       }
     };
     init();
-  }, [dispatch]);
+  }, [dispatch, totalCount]);
 
   const handleLogout = async () => {
     try {
@@ -71,18 +107,13 @@ export default function CollectorHome() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      dispatch(fetchClients());
+     dispatch(fetchClients());
       const contribs = await contributionAPI.getContributions();
-      const items = (contribs || []).slice(0, 10).map((c: any) => ({
-        id: c.id,
-        clientName: c.client_name || c.client || 'Client',
-        amount: parseFloat(c.amount),
-        time: c.date || '',
-        synced: true,
-      }));
-      setRecentCollections(items);
-      setTodayTotal(items.reduce((sum, i) => sum + (isNaN(i.amount) ? 0 : i.amount), 0));
-      setClientsVisited(items.length);
+      const processedData = processContributions(contribs || []);
+      
+      setTodayTotal(processedData.todayTotal);
+      setClientsVisited(processedData.clientsVisited);
+      setRecentCollections(processedData.recentCollections);
     } catch {
       // Keep existing data on error
     } finally {

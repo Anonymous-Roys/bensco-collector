@@ -110,10 +110,10 @@ export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClos
               <Text style={styles.actionBtnText}>Collect</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={[styles.actionBtn, styles.secondaryActionBtn]}>
+            {/* <TouchableOpacity style={[styles.actionBtn, styles.secondaryActionBtn]}>
               <MaterialCommunityIcons name="phone" size={20} color={LogoColors.primary.red} />
               <Text style={[styles.actionBtnText, styles.secondaryActionBtnText]}>Call</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
         </View>
       </ScrollView>
