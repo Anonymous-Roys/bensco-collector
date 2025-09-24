@@ -17,8 +17,9 @@ from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 import os
+from dotenv import load_dotenv
+load_dotenv()
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATIC_URL = "/static/"
 
@@ -175,20 +176,18 @@ SIMPLE_JWT = {
 # ]
 
 ## Email Settings
+
+EMAIL_PROVIDER = "smtp"   # or "api"
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False
-EMAIL_HOST_USER = "davidarhin2005@gmail.com"
-EMAIL_HOST_PASSWORD = "fiwy cfmf zntp uhcy"
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-
-
 # EMAIL_HOST_PASSWORD = "rjno wyfa jbip kfsi"  # App password here
-# # EMAIL_HOST_USER = "sefahb13@gmail.com"
 # # EMAIL_HOST_PASSWORD = "ackb exvv wkxn jplx"  # App password here
-
+EMAIL_HOST = "smtp-relay.brevo.com"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = os.getenv("BREVO_SMTP_USER")  # usually your Brevo login email
+EMAIL_HOST_PASSWORD = os.getenv("BREVO_SMTP_KEY")  # the SMTP key you generated
+DEFAULT_FROM_EMAIL = "Bensco Susu <no-reply@bensco2014.com>"
+BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True  # For development only - change in production

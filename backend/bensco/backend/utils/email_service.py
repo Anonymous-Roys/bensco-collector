@@ -1,23 +1,59 @@
 # utils/email_service.py
+import os
 import threading
 import logging
-from django.core.mail import EmailMultiAlternatives
+import re
 from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
 
 logger = logging.getLogger(__name__)
 
-def send_credentials_email_async(user, temp_password):
-    """Send email in a separate thread to avoid blocking"""
-    def send_email():
-        try:
-            # Check if email is configured
-            if not settings.EMAIL_HOST_USER:
-                logger.warning("Email not configured - skipping send")
-                return False
-                
-            subject = 'Welcome to Bensco Susu - Your Account is Ready!'
-            html_message = f"""
-<!DOCTYPE html>
+# Optional import of Brevo SDK
+try:
+    import sib_api_v3_sdk
+    from sib_api_v3_sdk.rest import ApiException
+except Exception:
+    sib_api_v3_sdk = None
+    ApiException = Exception
+
+
+def _parse_sender():
+    """
+    Returns (name, email) from settings.DEFAULT_FROM_EMAIL.
+    Accepts formats like:
+      - "Name <email@domain.com>"
+      - "email@domain.com"
+      - "Name"
+    """
+    raw = getattr(settings, "DEFAULT_FROM_EMAIL", "") or ""
+    # If format "Name <email>"
+    m = re.search(r'^(.*?)<([^>]+)>$', raw)
+    if m:
+        name = m.group(1).strip().strip('"') or "Bensco Susu"
+        email = m.group(2).strip()
+        return name, email
+    # if it's just an email
+    if "@" in raw:
+        return "Bensco Susu", raw.strip()
+    # fallback
+    return "Bensco Susu", raw.strip() or "no-reply@yourdomain.com"
+
+
+def _build_messages(user, temp_password):
+    """Return (subject, text_message, html_message) preserving original styling."""
+    subject = 'Welcome to Bensco Susu - Your Account is Ready!'
+    text_message = (
+        f"Welcome {user.full_name or user.username}!\n\n"
+        f"Your collector account has been successfully created.\n\n"
+        f"Username: {user.username}\n"
+        f"Email: {user.email}\n"
+        f"Employee ID: {user.unique_code}\n"
+        f"Password: {temp_password}\n\n"
+        "Please change your password after first login.\n\n"
+        "© 2024 Bensco Susu Limited"
+    )
+
+    html_message = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
@@ -48,26 +84,97 @@ def send_credentials_email_async(user, temp_password):
         </div>
     </div>
 </body>
-</html>
-            """
-            
-            msg = EmailMultiAlternatives(
-                subject=subject,
-                body=f"Welcome {user.full_name or user.username}!\n\nUsername: {user.username}\nPassword: {temp_password}\nEmployee ID: {user.unique_code}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                to=[user.email]
-            )
-            msg.attach_alternative(html_message, "text/html")
-            msg.send(fail_silently=False)
-            logger.info(f"✅ Email sent successfully to {user.email}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"❌ Email failed for {user.email}: {str(e)}")
+</html>"""
+    return subject, text_message, html_message
+
+
+def _send_email_smtp(user, temp_password, subject, html_message, text_message):
+    """Send via Django's SMTP backend (Brevo SMTP)"""
+    try:
+        # Basic config checks
+        if not getattr(settings, "EMAIL_HOST", None):
+            logger.warning("EMAIL_HOST not configured; skipping SMTP send")
             return False
-    
-    # Start email sending in a separate thread
-    email_thread = threading.Thread(target=send_email)
-    email_thread.daemon = True
-    email_thread.start()
+
+        msg = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email],
+        )
+        msg.attach_alternative(html_message, "text/html")
+        msg.send(fail_silently=False)
+        logger.info(f"✅ SMTP email sent to {user.email}")
+        return True
+    except Exception as e:
+        logger.exception(f"❌ SMTP email failed for {user.email}: {e}")
+        return False
+
+
+def _send_email_api(user, temp_password, subject, html_message, text_message):
+    """Send via Brevo HTTP API (sib-api-v3-sdk)"""
+    if not sib_api_v3_sdk:
+        logger.error("Brevo SDK not installed. Install with: pip install sib-api-v3-sdk")
+        return False
+
+    api_key = getattr(settings, "BREVO_API_KEY", None) or os.getenv("BREVO_API_KEY")
+    if not api_key:
+        logger.error("BREVO_API_KEY not set in settings or environment")
+        return False
+
+    try:
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key["api-key"] = api_key
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(sib_api_v3_sdk.ApiClient(configuration))
+
+        sender_name, sender_email = _parse_sender()
+        sender = {"email": sender_email, "name": sender_name}
+        to = [{"email": user.email, "name": user.full_name or user.username}]
+
+        email = sib_api_v3_sdk.SendSmtpEmail(
+            to=to,
+            sender=sender,
+            subject=subject,
+            html_content=html_message,
+            text_content=text_message,
+        )
+
+        response = api_instance.send_transac_email(email)
+        logger.info(f"✅ API email sent to {user.email}: {response}")
+        return True
+    except ApiException as e:
+        logger.exception(f"❌ Brevo API error for {user.email}: {e}")
+        return False
+    except Exception as e:
+        logger.exception(f"❌ Unexpected error sending API email for {user.email}: {e}")
+        return False
+
+
+def send_credentials_email_async(user, temp_password):
+    """
+    Public entry point. Uses settings.EMAIL_PROVIDER to choose backend.
+    Returns True as soon as the send thread is started.
+    """
+    subject, text_message, html_message = _build_messages(user, temp_password)
+
+    def _worker():
+        provider = getattr(settings, "EMAIL_PROVIDER", "smtp").lower()
+        logger.debug(f"Email provider selected: {provider} (to={user.email})")
+
+        if provider == "api":
+            ok = _send_email_api(user, temp_password, subject, html_message, text_message)
+            if not ok:
+                logger.warning("API send failed; attempting SMTP fallback")
+                _send_email_smtp(user, temp_password, subject, html_message, text_message)
+            return
+
+        # default smtp
+        ok = _send_email_smtp(user, temp_password, subject, html_message, text_message)
+        if not ok and getattr(settings, "EMAIL_PROVIDER_FALLBACK", False):
+            logger.warning("SMTP send failed; attempting API fallback")
+            _send_email_api(user, temp_password, subject, html_message, text_message)
+
+    thread = threading.Thread(target=_worker)
+    thread.daemon = True
+    thread.start()
     return True
