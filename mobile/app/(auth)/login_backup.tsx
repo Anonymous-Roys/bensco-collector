@@ -376,14 +376,14 @@ const LoginScreen: React.FC = () => {
             )}
           </TouchableOpacity>
           {/* Forgot Password */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.forgotButton}
             onPress={handleForgotPassword}
           >
             <Text style={styles.forgotButtonText}>
               Forgot Password? Request Reset
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           {/* Demo Credentials */}
           {showChangePassword && (
             <ChangePasswordScreen
