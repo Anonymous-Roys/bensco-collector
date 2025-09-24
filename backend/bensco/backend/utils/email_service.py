@@ -1,12 +1,20 @@
 # utils/email_service.py
 import threading
+import logging
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 def send_credentials_email_async(user, temp_password):
     """Send email in a separate thread to avoid blocking"""
     def send_email():
         try:
+            # Check if email is configured
+            if not settings.EMAIL_HOST_USER:
+                logger.warning("Email not configured - skipping send")
+                return False
+                
             subject = 'Welcome to Bensco Susu - Your Account is Ready!'
             html_message = f"""
 <!DOCTYPE html>
@@ -15,7 +23,7 @@ def send_credentials_email_async(user, temp_password):
     <meta charset="utf-8">
     <title>Welcome to Bensco Susu</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f5f5;">
+<body>
     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
         <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 40px 30px; text-align: center;">
             <h1 style="color: #ffffff; font-size: 32px; font-weight: bold; margin: 0; letter-spacing: 2px;">BENSCO</h1>
@@ -51,13 +59,15 @@ def send_credentials_email_async(user, temp_password):
             )
             msg.attach_alternative(html_message, "text/html")
             msg.send(fail_silently=False)
-            print(f"✅ Email sent successfully to {user.email}")
+            logger.info(f"✅ Email sent successfully to {user.email}")
+            return True
             
         except Exception as e:
-            print(f"❌ Email failed for {user.email}: {str(e)}")
+            logger.error(f"❌ Email failed for {user.email}: {str(e)}")
+            return False
     
     # Start email sending in a separate thread
     email_thread = threading.Thread(target=send_email)
-    email_thread.daemon = True  # Thread will be killed when main thread exits
+    email_thread.daemon = True
     email_thread.start()
     return True
