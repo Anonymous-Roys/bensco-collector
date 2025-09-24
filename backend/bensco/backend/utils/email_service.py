@@ -36,7 +36,7 @@ def _parse_sender():
     if "@" in raw:
         return "Bensco Susu", raw.strip()
     # fallback
-    return "Bensco Susu", raw.strip() or "no-reply@yourdomain.com"
+    return "Bensco Susu", raw.strip() or "davidarhin2005@gmail.com"
 
 
 def _build_messages(user, temp_password):

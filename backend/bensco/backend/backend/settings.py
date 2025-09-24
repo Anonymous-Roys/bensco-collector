@@ -186,7 +186,7 @@ EMAIL_HOST = "smtp-relay.brevo.com"
 EMAIL_PORT = 587
 EMAIL_HOST_USER = os.getenv("BREVO_SMTP_USER")  # usually your Brevo login email
 EMAIL_HOST_PASSWORD = os.getenv("BREVO_SMTP_KEY")  # the SMTP key you generated
-DEFAULT_FROM_EMAIL = "Bensco Susu <no-reply@bensco2014.com>"
+DEFAULT_FROM_EMAIL = "Bensco Susu <davidarhin2005@gmail.com>"
 BREVO_API_KEY = os.getenv("BREVO_API_KEY")
 
 # CORS Configuration
