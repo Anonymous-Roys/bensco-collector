@@ -24,41 +24,63 @@ export default function CollectorHome() {
   const [recentCollections, setRecentCollections] = useState<{ id: string; clientName: string; amount: number; time: string; synced: boolean }[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-
   const processContributions = (contributions: any[]) => {
     const today = new Date().toDateString();
+    console.log('Today:', today);
     
     // Filter contributions from today only
     const todaysContributions = contributions.filter((c: any) => {
-      const contributionDate = new Date(c.date || c.createdAt || c.timestamp).toDateString();
-      return contributionDate === today;
+      // Handle different possible date field names
+      const dateString = c.date || c.created_at || c.createdAt || c.timestamp;
+      const contributionDate = new Date(dateString).toDateString();
+      const isToday = contributionDate === today;
+      
+      if (isToday) {
+        console.log('Today\'s contribution:', { 
+          amount: c.amount, 
+          date: contributionDate,
+          client: c.client_id || c.client_name || c.client 
+        });
+      }
+      
+      return isToday;
     });
+
+    console.log('Total contributions today:', todaysContributions.length);
 
     // Calculate today's total
     const todayTotalAmount = todaysContributions.reduce((sum: number, c: any) => {
       return sum + (parseFloat(c.amount) || 0);
     }, 0);
 
-    // Get unique clients visited today (using client_id or client_name)
+    console.log('Today total amount:', todayTotalAmount);
+
+    // Get unique clients visited today (using client_id or client field)
     const uniqueClientIds = new Set();
     todaysContributions.forEach((c: any) => {
-      // Use client_id if available, otherwise fall back to client_name
-      const clientIdentifier = c.client_id || c.client_name || c.client;
+      // Use client_id if available, otherwise fall back to client field
+      const clientIdentifier = c.client_id || c.client;
       if (clientIdentifier) {
         uniqueClientIds.add(clientIdentifier);
       }
     });
 
-    const uniqueClientsCount = Math.min(uniqueClientIds.size, totalCount || 0);
+    const uniqueClientsCount = uniqueClientIds.size;
+    console.log('Unique clients visited today:', uniqueClientsCount);
 
     // Get recent collections (all contributions, not just today's)
-    const recentItems = contributions.slice(0, 10).map((c: any) => ({
-      id: c.id,
-      clientName: c.client_name || c.client || 'Client',
-      amount: parseFloat(c.amount) || 0,
-      time: c.date || '',
-      synced: true,
-    }));
+    const recentItems = contributions.slice(0, 10).map((c: any) => {
+      // Handle different possible date field names for recent collections
+      const dateString = c.date || c.created_at || c.createdAt || c.timestamp;
+      
+      return {
+        id: c.id,
+        clientName: c.client_name || c.client || 'Client',
+        amount: parseFloat(c.amount) || 0,
+        time: dateString,
+        synced: true,
+      };
+    });
 
     return {
       todayTotal: todayTotalAmount,
@@ -74,12 +96,15 @@ export default function CollectorHome() {
       dispatch(fetchClients());
       try {
         const contribs = await contributionAPI.getContributions();
+        console.log('Raw contributions:', contribs);
+        
         const processedData = processContributions(contribs || []);
         
         setTodayTotal(processedData.todayTotal);
         setClientsVisited(processedData.clientsVisited);
         setRecentCollections(processedData.recentCollections);
-      } catch {
+      } catch (error) {
+        console.error('Error loading contributions:', error);
         setRecentCollections([]);
         setTodayTotal(0);
         setClientsVisited(0);
@@ -107,15 +132,15 @@ export default function CollectorHome() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-     dispatch(fetchClients());
+      dispatch(fetchClients());
       const contribs = await contributionAPI.getContributions();
       const processedData = processContributions(contribs || []);
       
       setTodayTotal(processedData.todayTotal);
       setClientsVisited(processedData.clientsVisited);
       setRecentCollections(processedData.recentCollections);
-    } catch {
-      // Keep existing data on error
+    } catch (error) {
+      console.error('Error refreshing:', error);
     } finally {
       setRefreshing(false);
     }

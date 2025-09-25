@@ -18,7 +18,7 @@ import { router } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 // import { authAPI, storageService } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
-import ChangePasswordScreen from '@/components/ChangePasswordScreen';
+// import ChangePasswordScreen from '@/app/(auth)/change-password';
 
 // const { width, height } = Dimensions.get('window');
 
@@ -113,7 +113,7 @@ const LoginScreen: React.FC = () => {
       if (result.success) {
         // Check if user must change password
         if (user && user.must_change_password) {
-          setShowChangePassword(true);
+          router.push("/change-password");
         } else {
           // Success - navigate to main app
           console.log("🔑 Login successful, navigating to tabs...");
@@ -385,14 +385,14 @@ const LoginScreen: React.FC = () => {
             </Text>
           </TouchableOpacity> */}
           {/* Demo Credentials */}
-          {showChangePassword && (
+          {/* {showChangePassword && (
             <ChangePasswordScreen
               onPasswordChanged={() => {
                 setShowChangePassword(false);
                 router.replace('/(tabs)');
               }}
             />
-          )}
+          )} */}
         </View>
       </ScrollView>
       {/* Forgot Password Modal */}

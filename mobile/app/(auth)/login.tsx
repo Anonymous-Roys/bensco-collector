@@ -11,25 +11,22 @@ import {
   ScrollView,
   StatusBar,
   ActivityIndicator,
-  Dimensions
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { router } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
+// import { authAPI, storageService } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
-import ChangePasswordScreen from '@/components/ChangePasswordScreen';
+// import ChangePasswordScreen from '@/app/(auth)/change-password';
 
-type RootStackParamList = {
-  Login: undefined;
-  Home: undefined;
-};
+// const { width, height } = Dimensions.get('window');
 
-interface LoginScreenProps {
-  // Add any props you might need
-}
 
-const LoginScreen: React.FC<LoginScreenProps> = () => {
+
+// No props needed for this screen
+
+const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -46,7 +43,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
   const { login, offlineLogin, requestPasswordReset, getSavedCredentials, isLoading, user } = useAuth();
   const [showChangePassword, setShowChangePassword] = useState(false);
 
-  // Network status
+  // Simulate network status
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOffline(!state.isConnected);
@@ -110,21 +107,24 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
     }
 
     try {
+      // Use auth hook for login
       const result = await login({ email, password }, rememberMe);
-      
+
       if (result.success) {
         // Check if user must change password
         if (user && user.must_change_password) {
-          setShowChangePassword(true);
+          router.push("/change-password");
         } else {
+          // Success - navigate to main app
           console.log("🔑 Login successful, navigating to tabs...");
           router.replace('/(tabs)');
         }
         setLoginAttempts(0);
       } else {
+        // Handle login failure
         const newAttempts = loginAttempts + 1;
         setLoginAttempts(newAttempts);
-        
+
         if (newAttempts >= 5) {
           setIsBlocked(true);
           setBlockTimer(300); // 5 minutes block
@@ -144,10 +144,10 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
     } catch (error) {
       const newAttempts = loginAttempts + 1;
       setLoginAttempts(newAttempts);
-      
+
       if (newAttempts >= 5) {
         setIsBlocked(true);
-        setBlockTimer(300);
+        setBlockTimer(300); // 5 minutes block
         Alert.alert(
           "Account Locked",
           "Too many failed attempts. Your account has been temporarily locked for 5 minutes.",
@@ -167,7 +167,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
   const handleOfflineLogin = async (): Promise<void> => {
     try {
       const result = await offlineLogin();
-      
+
       if (result.success) {
         console.log("🔑 Offline login successful, navigating to tabs...");
         router.replace('/(tabs)');
@@ -194,7 +194,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
 
   const submitPasswordReset = async (): Promise<void> => {
     const identifier = resetEmail.trim() || resetPhone.trim();
-    
+
     if (!identifier) {
       Alert.alert("Missing Information", "Please enter either your email or phone number.");
       return;
@@ -207,6 +207,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
           "Your password reset request has been sent to the admin. You will receive new login credentials within 24 hours.",
           [{ text: "OK", onPress: () => setShowForgotPassword(false) }]
         );
+        // Clear form
         setResetEmail('');
         setResetPhone('');
       } else {
@@ -225,70 +226,52 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
           <MaterialCommunityIcons name="shield-account" size={24} color={Colors.light.primary.red} />
           <Text style={styles.modalTitle}>Password Reset Request</Text>
         </View>
-        
         <Text style={styles.modalDescription}>
           Enter your email or phone number. The admin will send you new login credentials via SMS.
         </Text>
-        
-        <View style={styles.inputContainer}>
-          <MaterialCommunityIcons name="email-outline" size={20} color={Colors.light.text.secondary} />
-          <TextInput
-            style={styles.modalInput}
-            placeholder="Email address"
-            value={resetEmail}
-            onChangeText={setResetEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-        
+        <TextInput
+          style={styles.modalInput}
+          placeholder="Email address"
+          value={resetEmail}
+          onChangeText={setResetEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
         <Text style={styles.orText}>OR</Text>
-        
-        <View style={styles.inputContainer}>
-          <MaterialCommunityIcons name="phone-outline" size={20} color={Colors.light.text.secondary} />
-          <TextInput
-            style={styles.modalInput}
-            placeholder="Phone number"
-            value={resetPhone}
-            onChangeText={setResetPhone}
-            keyboardType="phone-pad"
-          />
-        </View>
-        
+        <TextInput
+          style={styles.modalInput}
+          placeholder="Phone number"
+          value={resetPhone}
+          onChangeText={setResetPhone}
+          keyboardType="phone-pad"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
         <View style={styles.modalButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.cancelButton}
             onPress={() => setShowForgotPassword(false)}
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.submitButton}
             onPress={submitPasswordReset}
           >
-            <Text style={styles.submitButtonText}>Submit Request</Text>
+            <Text style={styles.submitButtonText}>Submit</Text>
           </TouchableOpacity>
         </View>
       </View>
     </View>
   );
 
-  // Show change password screen if required
-  if (showChangePassword) {
-    return <ChangePasswordScreen onPasswordChanged={() => {
-      setShowChangePassword(false);
-      router.replace('/(tabs)');
-    }} />;
-  }
-
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar barStyle="light-content" backgroundColor={Colors.light.primary.red} />
-      
       {/* Connection Status */}
       <View style={[styles.connectionStatus, isOffline && styles.offline]}>
         {isOffline ? (
@@ -300,7 +283,6 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
           {isOffline ? 'Offline Mode' : 'Connected'}
         </Text>
       </View>
-      
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
@@ -310,7 +292,6 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
           </View>
           <Text style={styles.welcomeText}>Field Worker Login</Text>
         </View>
-        
         {/* Login Form */}
         <View style={styles.formContainer}>
           {/* Email Input */}
@@ -327,7 +308,6 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               editable={!isLoading && !isBlocked}
             />
           </View>
-          
           {/* Password Input */}
           <View style={styles.inputContainer}>
             <MaterialCommunityIcons name="lock-outline" size={20} color={Colors.light.text.secondary} />
@@ -341,7 +321,7 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               autoCorrect={false}
               editable={!isLoading && !isBlocked}
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
             >
@@ -352,9 +332,8 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               )}
             </TouchableOpacity>
           </View>
-          
           {/* Remember Me */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.rememberContainer}
             onPress={() => setRememberMe(!rememberMe)}
           >
@@ -363,7 +342,6 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
             </View>
             <Text style={styles.rememberText}>Remember me for 7 days</Text>
           </TouchableOpacity>
-          
           {/* Login Attempts Warning */}
           {loginAttempts > 0 && !isBlocked && (
             <View style={styles.warningContainer}>
@@ -372,7 +350,6 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               </Text>
             </View>
           )}
-          
           {/* Block Timer */}
           {isBlocked && (
             <View style={styles.errorContainer}>
@@ -381,11 +358,10 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               </Text>
             </View>
           )}
-          
           {/* Login Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.loginButton, 
+              styles.loginButton,
               (isLoading || isBlocked) && styles.loginButtonDisabled
             ]}
             onPress={isOffline ? handleOfflineLogin : handleLogin}
@@ -399,19 +375,26 @@ const LoginScreen: React.FC<LoginScreenProps> = () => {
               </Text>
             )}
           </TouchableOpacity>
-          
           {/* Forgot Password */}
-          <TouchableOpacity 
+          {/* <TouchableOpacity
             style={styles.forgotButton}
             onPress={handleForgotPassword}
           >
             <Text style={styles.forgotButtonText}>
               Forgot Password? Request Reset
             </Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
+          {/* Demo Credentials */}
+          {/* {showChangePassword && (
+            <ChangePasswordScreen
+              onPasswordChanged={() => {
+                setShowChangePassword(false);
+                router.replace('/(tabs)');
+              }}
+            />
+          )} */}
         </View>
       </ScrollView>
-      
       {/* Forgot Password Modal */}
       {showForgotPassword && <ForgotPasswordModal />}
     </KeyboardAvoidingView>
@@ -612,6 +595,28 @@ const styles = StyleSheet.create({
     color: Colors.light.secondary.navy,
     fontSize: 16,
     fontWeight: '500',
+  },
+  
+  demoContainer: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: Colors.light.neutral.cream,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.accent.gold,
+  },
+  
+  demoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.light.text.primary,
+    marginBottom: 8,
+  },
+  
+  demoText: {
+    fontSize: 12,
+    color: Colors.light.text.secondary,
+    fontFamily: 'monospace',
   },
   
   // Modal Styles

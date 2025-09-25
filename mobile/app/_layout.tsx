@@ -60,6 +60,13 @@ export default function RootLayout() {
     gestureEnabled: false // Prevent swipe back from login
   }} 
 />
+ <Stack.Screen
+    name="(auth)/change-password"
+    options={{ 
+      headerShown: false,
+      title: "Change Password",
+    }}
+  />
           
           {/* ✅ Tabs layout (after login) */}
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

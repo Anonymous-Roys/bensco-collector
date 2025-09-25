@@ -175,7 +175,7 @@ export default function ClientsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My Clients</Text>
@@ -210,6 +210,7 @@ export default function ClientsScreen() {
       >
         <FilterButton filter="all" title="All" />
         <FilterButton filter="active" title="Active" />
+        {/* Removed any potential stray dots */}
       </ScrollView>
 
       {/* Sort Options */}
@@ -318,7 +319,7 @@ export default function ClientsScreen() {
           loading={contributionLoading}
         />
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -329,10 +330,11 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
+    paddingTop: 50,
     backgroundColor: LogoColors.background.primary,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: LogoColors.text.primary,
     marginBottom: 4,

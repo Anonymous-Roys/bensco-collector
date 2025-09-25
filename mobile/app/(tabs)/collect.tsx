@@ -281,8 +281,9 @@ const styles = StyleSheet.create({
 
   },
   header: {
-    padding: 20,
-    paddingBottom: 10,
+     padding: 20,
+    paddingTop: 0,
+    backgroundColor: LogoColors.background.primary,
   },
   headerTitle: {
     fontSize: 24,
