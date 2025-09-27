@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
 import { authAPI, storageService } from '@/services/api';
 import { LoginRequest, LoginResponse } from '@/constants/api';
+import { router } from 'expo-router';
 
 interface User {
   id: string;
@@ -27,6 +28,7 @@ export const useAuth = () => {
     isOffline: false,
   });
 
+  const authCheckedRef = useRef(false); // Prevent multiple auth checks
 
   const logout = useCallback(async () => {
     try {
@@ -41,6 +43,8 @@ export const useAuth = () => {
         isLoading: false,
         isOffline: false,
       });
+
+      router.replace('/(auth)/login');
     } catch (error) {
       console.error('Error during logout:', error);
       // Even if there's an error, we should still clear the state
@@ -50,36 +54,63 @@ export const useAuth = () => {
         isLoading: false,
         isOffline: false,
       });
+      router.replace('/(auth)/login');
     }
   }, []);
 
-  // Check authentication status on app start
+  // Check authentication status on app start - ONLY ONCE
   useEffect(() => {
-    checkAuthStatus();
-  }, []);
+    if (authCheckedRef.current) return; // Prevent multiple calls
+    
+    let isMounted = true;
 
-  const checkAuthStatus = useCallback(async () => {
-    try {
-      const authData = await storageService.getAuthData();
-      // If no accessToken or userData, log out
-      if (!authData.accessToken || !authData.userData) {
-        await logout();
-        Alert.alert('Session Expired', 'You have been logged out. Please log in again.');
-        return;
+    const checkAuthStatus = async () => {
+      try {
+        authCheckedRef.current = true; // Mark as checked
+        
+        const authData = await storageService.getAuthData();
+        
+        if (!isMounted) return; // Prevent state updates if unmounted
+
+        // If no accessToken or userData, set logged out state
+        if (!authData.accessToken || !authData.userData) {
+          console.log('No auth data found, setting logged out state');
+          setAuthState({
+            isAuthenticated: false,
+            user: null,
+            isLoading: false,
+            isOffline: false,
+          });
+          return;
+        }
+
+        // Update auth state
+        setAuthState({
+          isAuthenticated: true,
+          user: authData.userData,
+          isLoading: false,
+          isOffline: false,
+        });
+        
+      } catch (error) {
+        console.error('Error checking auth status:', error);
+        if (isMounted) {
+          setAuthState({
+            isAuthenticated: false,
+            user: null,
+            isLoading: false,
+            isOffline: false,
+          });
+        }
       }
-      // Optionally, you can add a check to validate token expiry here
-      setAuthState({
-        isAuthenticated: true,
-        user: authData.userData,
-        isLoading: false,
-        isOffline: false,
-      });
-    } catch (error) {
-      console.error('Error checking auth status:', error);
-      await logout();
-      Alert.alert('Session Error', 'Unable to fetch user. You have been logged out.');
-    }
-  }, [logout]);
+    };
+
+    checkAuthStatus();
+
+    return () => {
+      isMounted = false; // Cleanup
+    };
+  }, []); // Empty dependency array - runs only once
 
   const login = useCallback(async (credentials: LoginRequest, rememberMe: boolean = false) => {
     try {
@@ -106,7 +137,11 @@ export const useAuth = () => {
         isOffline: false,
       });
 
-      return { success: true };
+      return { 
+        success: true,
+        isFirstLogin: loginResponse.user?.must_change_password || false,
+        mustChangePassword: loginResponse.user?.must_change_password || false 
+      };
     } catch (error) {
       setAuthState(prev => ({ ...prev, isLoading: false }));
       
@@ -114,7 +149,6 @@ export const useAuth = () => {
       return { success: false, error: errorMessage };
     }
   }, []);
-
 
   const offlineLogin = useCallback(async () => {
     try {
@@ -129,6 +163,7 @@ export const useAuth = () => {
         });
         return { success: true };
       } else {
+        // Don't redirect here - let the component handle it based on authState
         return { success: false, error: 'No cached login data found' };
       }
     } catch (error) {
@@ -150,11 +185,11 @@ export const useAuth = () => {
         });
         return { success: true };
       } else {
+        await logout();
         return { success: false, error: 'No refresh token found' };
       }
     } catch (error) {
       console.error('Error refreshing token:', error);
-      // If refresh fails, logout the user
       await logout();
       return { success: false, error: 'Token refresh failed' };
     }
@@ -188,6 +223,7 @@ export const useAuth = () => {
     }
   }, []);
 
+  // Remove checkAuthStatus from return since it's handled internally
   return {
     ...authState,
     login,
@@ -197,6 +233,5 @@ export const useAuth = () => {
     requestPasswordReset,
     getSavedCredentials,
     isRememberMeEnabled,
-    checkAuthStatus,
   };
 };

@@ -16,15 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { router } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
-// import { authAPI, storageService } from '@/services/api';
 import { useAuth } from '@/hooks/useAuth';
-// import ChangePasswordScreen from '@/app/(auth)/change-password';
-
-// const { width, height } = Dimensions.get('window');
-
-
-
-// No props needed for this screen
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState<string>('');
@@ -38,10 +30,13 @@ const LoginScreen: React.FC = () => {
   const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
   const [resetEmail, setResetEmail] = useState<string>('');
   const [resetPhone, setResetPhone] = useState<string>('');
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false); // Local loading state
 
   // Use auth hook
-  const { login, offlineLogin, requestPasswordReset, getSavedCredentials, isLoading, user } = useAuth();
-  const [showChangePassword, setShowChangePassword] = useState(false);
+  const { login, offlineLogin, requestPasswordReset, getSavedCredentials, isLoading: authLoading, user } = useAuth();
+
+  // Combined loading state (auth hook loading + local loading)
+  const isLoading = authLoading || isLoggingIn;
 
   // Simulate network status
   useEffect(() => {
@@ -87,6 +82,12 @@ const LoginScreen: React.FC = () => {
   };
 
   const handleLogin = async (): Promise<void> => {
+    // Prevent multiple simultaneous login attempts
+    if (isLoggingIn) {
+      console.log('Login already in progress...');
+      return;
+    }
+
     if (isBlocked) {
       Alert.alert(
         "Account Temporarily Locked",
@@ -106,14 +107,24 @@ const LoginScreen: React.FC = () => {
       return;
     }
 
+    // Set loading state
+    setIsLoggingIn(true);
+
     try {
       // Use auth hook for login
       const result = await login({ email, password }, rememberMe);
 
       if (result.success) {
-        // Check if user must change password
-        if (user && user.must_change_password) {
-          router.push("/change-password");
+        // Check if user must change password - use the result from login response
+        if (result.mustChangePassword || result.isFirstLogin) {
+          console.log("🔑 First login detected, redirecting to change password...");
+          router.push({
+            pathname: "/change-password",
+            params: { 
+              isRequired: "true",
+              email: email 
+            }
+          });
         } else {
           // Success - navigate to main app
           console.log("🔑 Login successful, navigating to tabs...");
@@ -161,10 +172,21 @@ const LoginScreen: React.FC = () => {
           [{ text: "Try Again" }]
         );
       }
+    } finally {
+      // Always reset loading state, whether success or failure
+      setIsLoggingIn(false);
     }
   };
 
   const handleOfflineLogin = async (): Promise<void> => {
+    // Prevent multiple simultaneous login attempts
+    if (isLoggingIn) {
+      console.log('Offline login already in progress...');
+      return;
+    }
+
+    setIsLoggingIn(true);
+
     try {
       const result = await offlineLogin();
 
@@ -185,6 +207,8 @@ const LoginScreen: React.FC = () => {
         "Unable to access cached login data. Please connect to the internet.",
         [{ text: "OK" }]
       );
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -199,6 +223,7 @@ const LoginScreen: React.FC = () => {
       Alert.alert("Missing Information", "Please enter either your email or phone number.");
       return;
     }
+    
     try {
       const result = await requestPasswordReset(identifier);
       if (result.success) {
@@ -232,6 +257,7 @@ const LoginScreen: React.FC = () => {
         <TextInput
           style={styles.modalInput}
           placeholder="Email address"
+          placeholderTextColor={Colors.light.text.secondary} // Add this line
           value={resetEmail}
           onChangeText={setResetEmail}
           keyboardType="email-address"
@@ -242,6 +268,7 @@ const LoginScreen: React.FC = () => {
         <TextInput
           style={styles.modalInput}
           placeholder="Phone number"
+           placeholderTextColor={Colors.light.text.secondary} // Add this line
           value={resetPhone}
           onChangeText={setResetPhone}
           keyboardType="phone-pad"
@@ -300,6 +327,7 @@ const LoginScreen: React.FC = () => {
             <TextInput
               style={styles.input}
               placeholder="Email address"
+               placeholderTextColor={Colors.light.text.secondary} // Add this line
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -314,6 +342,7 @@ const LoginScreen: React.FC = () => {
             <TextInput
               style={styles.input}
               placeholder="Password"
+               placeholderTextColor={Colors.light.text.secondary} // Add this line
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -324,6 +353,7 @@ const LoginScreen: React.FC = () => {
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
+              disabled={isLoading}
             >
               {showPassword ? (
                 <MaterialCommunityIcons name="eye-off-outline" size={20} color={Colors.light.text.secondary} />
@@ -335,7 +365,8 @@ const LoginScreen: React.FC = () => {
           {/* Remember Me */}
           <TouchableOpacity
             style={styles.rememberContainer}
-            onPress={() => setRememberMe(!rememberMe)}
+            onPress={() => !isLoading && setRememberMe(!rememberMe)}
+            disabled={isLoading}
           >
             <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
               {rememberMe && <Text style={styles.checkmark}>✓</Text>}
@@ -377,26 +408,18 @@ const LoginScreen: React.FC = () => {
           </TouchableOpacity>
           {/* Forgot Password */}
           {/* <TouchableOpacity
-            style={styles.forgotButton}
+            style={[styles.forgotButton, isLoading && styles.disabledButton]}
             onPress={handleForgotPassword}
+            disabled={isLoading}
           >
             <Text style={styles.forgotButtonText}>
               Forgot Password? Request Reset
             </Text>
           </TouchableOpacity> */}
-          {/* Demo Credentials */}
-          {/* {showChangePassword && (
-            <ChangePasswordScreen
-              onPasswordChanged={() => {
-                setShowChangePassword(false);
-                router.replace('/(tabs)');
-              }}
-            />
-          )} */}
         </View>
       </ScrollView>
       {/* Forgot Password Modal */}
-      {showForgotPassword && <ForgotPasswordModal />}
+      {/* {showForgotPassword && <ForgotPasswordModal />} */}
     </KeyboardAvoidingView>
   );
 };
@@ -494,7 +517,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
-  
+ 
   eyeIcon: {
     padding: 8,
   },
@@ -591,34 +614,17 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   
+  disabledButton: {
+    opacity: 0.5,
+  },
+  
   forgotButtonText: {
     color: Colors.light.secondary.navy,
     fontSize: 16,
     fontWeight: '500',
   },
   
-  demoContainer: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: Colors.light.neutral.cream,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.light.accent.gold,
-  },
-  
-  demoTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.light.text.primary,
-    marginBottom: 8,
-  },
-  
-  demoText: {
-    fontSize: 12,
-    color: Colors.light.text.secondary,
-    fontFamily: 'monospace',
-  },
-  
+  // ... rest of your styles remain the same
   // Modal Styles
   modalOverlay: {
     position: 'absolute',

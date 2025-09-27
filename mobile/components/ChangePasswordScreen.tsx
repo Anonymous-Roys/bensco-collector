@@ -95,6 +95,7 @@ const ChangePasswordScreen: React.FC<{ onPasswordChanged?: () => void; onBackPre
           <TextInput
             style={styles.input}
             placeholder="Current Password"
+             placeholderTextColor={Colors.light.text.secondary} // Add this line
             secureTextEntry={!showCurrentPassword}
             value={currentPassword}
             onChangeText={setCurrentPassword}
@@ -118,6 +119,7 @@ const ChangePasswordScreen: React.FC<{ onPasswordChanged?: () => void; onBackPre
           <TextInput
             style={styles.input}
             placeholder="New Password"
+             placeholderTextColor={Colors.light.text.secondary} // Add this line
             secureTextEntry={!showNewPassword}
             value={newPassword}
             onChangeText={setNewPassword}
@@ -141,6 +143,7 @@ const ChangePasswordScreen: React.FC<{ onPasswordChanged?: () => void; onBackPre
           <TextInput
             style={styles.input}
             placeholder="Confirm New Password"
+             placeholderTextColor={Colors.light.text.secondary} // Add this line
             secureTextEntry={!showConfirmPassword}
             value={confirmPassword}
             onChangeText={setConfirmPassword}
