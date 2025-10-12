@@ -40,14 +40,27 @@ def generate_secure_password(length=12):
 
 def generate_unique_code(model_class, role_prefix):
     """
-    example BSL-ADM-1A2B3
+    example BSL-CLI-0001, BSL-CLI-0002
     """
-    while True:
-        hex_part = generate_hex_id()
-        code = f"BSL-{role_prefix}-{hex_part}"
-        print(f"Trying code: {code}") 
-        if not model_class.objects.filter(unique_code=code).exists():
-            return code
+    # Get the highest existing number for this prefix
+    existing_codes = model_class.objects.filter(
+        unique_code__startswith=f"BSL-{role_prefix}-"
+    ).values_list('unique_code', flat=True)
+    
+    max_number = 0
+    for code in existing_codes:
+        try:
+            # Extract number from code like BSL-CLI-0001
+            number_part = code.split('-')[-1]
+            if number_part.isdigit():
+                max_number = max(max_number, int(number_part))
+        except (IndexError, ValueError):
+            continue
+    
+    # Generate next sequential number
+    next_number = max_number + 1
+    code = f"BSL-{role_prefix}-{next_number:04d}"
+    return code
 
 
 def check_and_close_all_cycles():
