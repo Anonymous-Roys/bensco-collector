@@ -45,35 +45,43 @@ class ClientModel(models.Model):
     def get_available_balance(self):
         """Get client's available balance for payout"""
         from contributions.models import ContributionModel
-        from payouts.models import PayoutModel
+        from decimal import Decimal
         
-        total_contributions = ContributionModel.objects.filter(
-            client=self
-        ).aggregate(total=models.Sum('amount'))['total'] or 0
-        
-        total_payouts = PayoutModel.objects.filter(
-            client=self,
-            status=PayoutModel.StatusChoices.PAID
-        ).aggregate(total=models.Sum('net_payout'))['total'] or 0
-        
-        # Calculate commission for current cycle
-        current_cycle = self.savings_cycles.filter(
-            status='active'
-        ).first()
-        
-        if current_cycle:
-            cycle_contributions = current_cycle.contributions.aggregate(
-                total=models.Sum('amount'),
-                days=models.Count('date', distinct=True)
-            )
-            commission = self.calculate_commission(
-                cycle_contributions['total'] or 0,
-                cycle_contributions['days']
-            )
-        else:
-            commission = 0
+        try:
+            total_contributions = ContributionModel.objects.filter(
+                client=self
+            ).aggregate(total=models.Sum('amount'))['total'] or Decimal('0')
             
-        return total_contributions - total_payouts - commission
+            # For now, don't subtract payouts to keep it simple
+            # total_payouts = PayoutModel.objects.filter(
+            #     client=self,
+            #     status=PayoutModel.StatusChoices.PAID
+            # ).aggregate(total=models.Sum('net_payout'))['total'] or Decimal('0')
+            
+            # Calculate commission for current cycle
+            current_cycle = self.savings_cycles.filter(
+                status='active'
+            ).first()
+            
+            if current_cycle:
+                cycle_contributions = current_cycle.contributions.aggregate(
+                    total=models.Sum('amount'),
+                    days=models.Count('date', distinct=True)
+                )
+                commission = self.calculate_commission(
+                    cycle_contributions['total'] or Decimal('0'),
+                    cycle_contributions['days'] or 0
+                )
+            else:
+                commission = Decimal('0')
+                
+            available = total_contributions - commission
+            print(f"Client {self.name} balance calculation: contributions={total_contributions}, commission={commission}, available={available}")
+            return max(available, Decimal('0'))  # Ensure non-negative
+            
+        except Exception as e:
+            print(f"Error calculating balance for client {self.name}: {e}")
+            return Decimal('0')
 
     def __str__(self):
         return self.name

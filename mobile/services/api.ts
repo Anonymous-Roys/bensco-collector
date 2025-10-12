@@ -262,10 +262,15 @@ export const payoutsAPI = {
   requestClientPayout: async (clientId: string, requestedAmount: number): Promise<any> => {
     try {
       const url = API_CONFIG.PAYOUTS.REQUEST_CLIENT.replace(':client_id', clientId);
-      const response = await api.post(url, { requested_amount: requestedAmount });
+      const payload = { requested_amount: requestedAmount.toString() };
+      console.log('Requesting payout:', { url: `${API_CONFIG.BASE_URL}${url}`, payload });
+      const response = await api.post(url, payload);
       return response.data;
     } catch (error) {
+      console.error('Payout request error:', error);
       if (axios.isAxiosError(error)) {
+        console.error('Response status:', error.response?.status);
+        console.error('Response data:', error.response?.data);
         const apiError: ApiError = error.response?.data || { detail: 'Failed to request client payout' };
         throw new Error(apiError.detail);
       }

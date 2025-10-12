@@ -160,6 +160,10 @@ def get_client_balance(request, client_id):
 @permission_classes([IsAuthenticated])
 def request_client_payout(request, client_id):
     """Request payout for a specific client with withdrawal amount"""
+    print(f"Payout request data: {request.data}")
+    print(f"Client ID: {client_id}")
+    print(f"User: {request.user}")
+    
     if request.user.role != 'collector':
         return Response({'detail': 'Only collectors can request payouts.'}, status=403)
     
@@ -170,7 +174,14 @@ def request_client_payout(request, client_id):
         from decimal import Decimal
         
         client = ClientModel.objects.get(id=client_id, collector=request.user)
-        requested_amount = Decimal(str(request.data.get('requested_amount', 0)))
+        requested_amount_data = request.data.get('requested_amount')
+        if not requested_amount_data:
+            return Response({'detail': 'Requested amount is required.'}, status=400)
+            
+        try:
+            requested_amount = Decimal(str(requested_amount_data))
+        except (ValueError, TypeError):
+            return Response({'detail': 'Invalid requested amount format.'}, status=400)
         
         if requested_amount <= 0:
             return Response({'detail': 'Requested amount must be greater than 0.'}, status=400)
@@ -207,17 +218,20 @@ def request_client_payout(request, client_id):
         available_balance = client.get_available_balance()
         
         # Create payout request (validation happens in model save)
-        payout = PayoutModel.objects.create(
-            client=client,
-            cycle=current_cycle,
-            payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC,
-            requested_amount=requested_amount,
-            available_balance=available_balance,
-            total_paid=total_collected,
-            commission=commission,
-            net_payout=requested_amount,  # What they'll actually receive if approved
-            requested_by=request.user
-        )
+        try:
+            payout = PayoutModel.objects.create(
+                client=client,
+                cycle=current_cycle,
+                payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC,
+                requested_amount=requested_amount,
+                available_balance=available_balance,
+                total_paid=total_collected,
+                commission=commission,
+                net_payout=min(requested_amount, available_balance),  # Actual payout amount
+                requested_by=request.user
+            )
+        except Exception as e:
+            return Response({'detail': f'Error creating payout: {str(e)}'}, status=400)
         
         serializer = PayoutModelSerializer(payout)
         return Response(serializer.data, status=201)
