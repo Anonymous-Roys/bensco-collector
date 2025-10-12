@@ -1,14 +1,31 @@
 from django.core.management import call_command
-from django.db import connection
+from django.db import connection, transaction
 
-# Temporary fix to reset migration order on Render
 def run():
+    print("🧹 Cleaning up duplicate index if it exists...")
+
     with connection.cursor() as cursor:
-        # Remove the incorrect entry that breaks dependencies
-        cursor.execute(
-            "DELETE FROM django_migrations WHERE app='savings' AND name='0003_alter_savingscyclemodel_options_and_more';"
-        )
-    # Re-apply migrations in correct order
+        # Drop the problematic index if it exists
+        cursor.execute("""
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1
+                    FROM pg_class c
+                    JOIN pg_namespace n ON n.oid = c.relnamespace
+                    WHERE c.relname = 'savings_sav_client__538ebf_idx'
+                ) THEN
+                    EXECUTE 'DROP INDEX IF EXISTS savings_sav_client__538ebf_idx;';
+                END IF;
+            END
+            $$;
+        """)
+        transaction.commit()
+
+        print("✅ Index cleaned up if it existed.")
+
+    print("🚀 Now running migrations in correct order...")
     call_command("migrate", "clients")
     call_command("migrate", "savings")
     call_command("migrate")
+    print("✅ All migrations applied successfully.")
