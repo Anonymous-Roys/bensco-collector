@@ -43,6 +43,7 @@ class ClientModelSerializer(serializers.ModelSerializer):
             'address_region',
             'dob',
             'next_of_kin',
+            'initial_balance',
             'total_net_savings',
             'available_balance',
         ]
@@ -72,6 +73,7 @@ class ClientCreateSerializer(serializers.ModelSerializer):
             'address',
             'dob',
             'next_of_kin',
+            'initial_balance',
         ]
 
     def create(self, validated_data):
@@ -86,9 +88,10 @@ class ClientUpdateSerializer(serializers.ModelSerializer):
             'phone_number',
             'amount_daily',
             'is_fixed',
-            'start_date',
             'collector',
             'address',
             'dob',
             'next_of_kin',
+            'initial_balance',
         ]
+        read_only_fields = ['start_date']

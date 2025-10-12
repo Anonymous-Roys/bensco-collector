@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from .serializers import ClientModelSerializer, AddressModelSerializer
+from .serializers import ClientModelSerializer, AddressModelSerializer, ClientUpdateSerializer
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from rest_framework.pagination import PageNumberPagination
@@ -115,8 +115,8 @@ def client_detail(request, client_id):
         elif request.user.role not in ['admin', 'collector']:
             return Response({'detail': 'Unauthorized role.'}, status=status.HTTP_403_FORBIDDEN)
         
-        # Use basic serializer for updates
-        serializer = ClientModelSerializer(client, data=request.data, partial=request.method == "PATCH")
+        # Use update serializer for updates (prevents start_date modification)
+        serializer = ClientUpdateSerializer(client, data=request.data, partial=request.method == "PATCH")
             
         if serializer.is_valid():
             try:

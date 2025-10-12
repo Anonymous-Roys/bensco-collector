@@ -27,6 +27,7 @@ class ClientModel(models.Model):
     next_of_kin = models.CharField(max_length=255, blank=False, null=True)
     is_fixed = models.BooleanField(default=True)
     start_date = models.DateField()
+    initial_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Initial balance when client is created")
     created_at = models.DateTimeField(auto_now_add=True)
     
     def calculate_commission(self, total_collected, contributing_days=None):
@@ -104,6 +105,8 @@ class ClientModel(models.Model):
                 cycle_available = cycle_net - paid_out
                 total_net_balance += max(cycle_available, Decimal('0'))
             
+            # Add initial balance
+            total_net_balance += (self.initial_balance or Decimal('0'))
             return total_net_balance
             
         except Exception as e:
