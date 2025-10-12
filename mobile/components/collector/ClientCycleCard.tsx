@@ -132,52 +132,50 @@ export const ClientCycleCard: React.FC<ClientCycleCardProps> = ({
               <View 
                 style={[
                   styles.progressFill, 
-                  { width: `${Math.min(current_cycle.progress_percentage, 100)}%` }
+                  { width: `${Math.min((current_cycle.contributing_days / current_cycle.cycle_length) * 100, 100)}%` }
                 ]} 
               />
             </View>
             <Text style={styles.progressText}>
-              {current_cycle.progress_percentage.toFixed(1)}% Complete
+              {((current_cycle.contributing_days / current_cycle.cycle_length) * 100).toFixed(1)}% Complete
             </Text>
           </View>
 
           <View style={styles.statsGrid}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Collected</Text>
-              <Text style={styles.statValue}>₵{current_cycle.total_collected.toFixed(2)}</Text>
+              <Text style={styles.statValue}>₵{(current_cycle.total_collected || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Days</Text>
               <Text style={styles.statValue}>
-                {current_cycle.contributing_days}/{current_cycle.cycle_length}
+                {current_cycle.contributing_days || 0}/{current_cycle.cycle_length || 31}
               </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Commission</Text>
-              <Text style={styles.statValue}>₵{current_cycle.commission.toFixed(2)}</Text>
+              <Text style={styles.statValue}>₵{(current_cycle.commission || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Business Days</Text>
-              <Text style={styles.statValue}>{current_cycle.business_days_passed}</Text>
+              <Text style={styles.statValue}>{current_cycle.contributing_days || 0}</Text>
             </View>
           </View>
 
-          {current_cycle.can_close && (
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={handleCloseCycle}
-              disabled={closingCycle}
-            >
-              {closingCycle ? (
-                <ActivityIndicator size="small" color={Colors.light.text.onPrimary} />
-              ) : (
-                <>
-                  <MaterialCommunityIcons name="check-circle" size={16} color={Colors.light.text.onPrimary} />
-                  <Text style={styles.closeButtonText}>Close Cycle</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={handleCloseCycle}
+            disabled={closingCycle}
+          >
+            {closingCycle ? (
+              <ActivityIndicator size="small" color={Colors.light.text.onPrimary} />
+            ) : (
+              <>
+                <MaterialCommunityIcons name="check-circle" size={16} color={Colors.light.text.onPrimary} />
+                <Text style={styles.closeButtonText}>Close Cycle</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
       ) : (
         <View style={styles.noCycle}>
@@ -193,21 +191,21 @@ export const ClientCycleCard: React.FC<ClientCycleCardProps> = ({
           {cycle_history.slice(0, 3).map((cycle) => (
             <View key={cycle.id} style={styles.historyItem}>
               <View style={styles.historyInfo}>
-                <Text style={styles.historyAmount}>₵{cycle.total_collected.toFixed(2)}</Text>
+                <Text style={styles.historyAmount}>₵{(cycle.total_collected || 0).toFixed(2)}</Text>
                 <Text style={styles.historyDetails}>
-                  {cycle.contributing_days} days • ₵{cycle.commission.toFixed(2)} commission
+                  {cycle.contributing_days || 0} days • ₵{(cycle.commission || 0).toFixed(2)} commission
                 </Text>
                 <Text style={styles.historyDate}>
-                  Closed: {new Date(cycle.closed_on).toLocaleDateString()}
+                  Closed: {cycle.closed_on ? new Date(cycle.closed_on).toLocaleDateString() : 'N/A'}
                 </Text>
               </View>
               <View style={[styles.statusBadge, { backgroundColor: Colors.light.text.light + '20' }]}>
                 <Text style={[styles.statusText, { color: Colors.light.text.secondary }]}>
-                  {cycle.status.toUpperCase()}
+                  {(cycle.status || 'closed').toUpperCase()}
                 </Text>
               </View>
             </View>
-          ))}
+          ))
         </View>
       )}
     </View>
