@@ -18,7 +18,7 @@ class PayoutModel(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     client = models.ForeignKey(ClientModel, on_delete=models.CASCADE, null=True, blank=True)
-    cycle = models.ForeignKey(SavingsCycleModel, on_delete=models.CASCADE, null=True, blank=True)
+    cycle = models.ForeignKey(SavingsCycleModel, on_delete=models.CASCADE, null=True, blank=True, related_name='payouts')
     
     payout_type = models.CharField(max_length=20, choices=PayoutTypeChoices.choices, default=PayoutTypeChoices.CLIENT_SPECIFIC)
     

@@ -89,11 +89,18 @@ def mark_payout_paid(request, payout_id):
     if request.user.role != 'admin':
         return Response({'error': 'Only admins can mark payouts as paid'}, status=403)
 
+    # Mark as paid and deduct from client's cycle
     payout.status = PayoutModel.StatusChoices.PAID
     payout.paid_on = timezone.now().date()
+    
+    # Deduct the payout amount from the cycle's total_saved
+    if payout.cycle:
+        payout.cycle.total_saved = max(0, (payout.cycle.total_saved or 0) - payout.net_payout)
+        payout.cycle.save()
+    
     payout.save()
 
-    return Response({'message': 'Payout marked as paid'}, status=200)
+    return Response({'message': 'Payout marked as paid and deducted from client balance'}, status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -128,7 +135,7 @@ def get_client_balance(request, client_id):
             from django.db.models import Sum, Count
             cycle_data = current_cycle.contributions.aggregate(
                 total=Sum('amount'),
-                days=Count('date', distinct=True)
+                days=Sum('days_covered')
             )
             commission = client.calculate_commission(
                 cycle_data['total'] or 0,
@@ -204,7 +211,7 @@ def request_client_payout(request, client_id):
         
         cycle_data = current_cycle.contributions.aggregate(
             total=Sum('amount'),
-            days=Count('date', distinct=True)
+            days=Sum('days_covered')
         )
         
         total_collected = cycle_data['total'] or 0

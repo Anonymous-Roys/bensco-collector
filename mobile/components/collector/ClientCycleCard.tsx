@@ -205,7 +205,7 @@ export const ClientCycleCard: React.FC<ClientCycleCardProps> = ({
                 </Text>
               </View>
             </View>
-          ))
+          ))}
         </View>
       )}
     </View>

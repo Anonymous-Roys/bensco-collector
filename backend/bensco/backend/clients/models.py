@@ -67,28 +67,53 @@ class ClientModel(models.Model):
         ).order_by('-end_date')
     
     def get_available_balance(self):
-        """Get client's available balance for payout from current cycle"""
+        """Get client's available balance for payout from all cycles"""
         from decimal import Decimal
+        from django.db.models import Sum
         
         try:
-            current_cycle = self.get_current_cycle()
-            
-            if not current_cycle:
-                return Decimal('0')
-            
-            # Get cycle progress
-            progress = current_cycle.get_cycle_progress()
-            total_contributions = progress['total_contributions']
-            
-            # Calculate commission for current cycle
-            commission = self.calculate_commission(
-                total_contributions,
-                progress['contributed_days']
+            # Get total from all closed cycles that haven't been fully paid out
+            closed_cycles = self.savings_cycles.filter(
+                status__in=['closed', 'paid_out']
             )
             
-            available = total_contributions - commission
-            print(f"Client {self.name} balance: contributions={total_contributions}, commission={commission}, available={available}")
-            return max(available, Decimal('0'))
+            total_from_closed = Decimal('0')
+            for cycle in closed_cycles:
+                cycle_contributions = cycle.contributions.aggregate(
+                    total=Sum('amount')
+                )['total'] or 0
+                
+                cycle_commission = self.calculate_commission(
+                    cycle_contributions,
+                    cycle.contributions.aggregate(days=Sum('days_covered'))['days'] or 0
+                )
+                
+                # Subtract any payouts already made for this cycle
+                paid_out = cycle.payouts.filter(
+                    status='paid'
+                ).aggregate(total=Sum('net_payout'))['total'] or 0
+                
+                cycle_available = cycle_contributions - cycle_commission - paid_out
+                total_from_closed += max(cycle_available, Decimal('0'))
+            
+            # Add current cycle balance
+            current_cycle = self.get_current_cycle()
+            current_available = Decimal('0')
+            
+            if current_cycle:
+                progress = current_cycle.get_cycle_progress()
+                total_contributions = progress['total_contributions']
+                
+                commission = self.calculate_commission(
+                    total_contributions,
+                    progress['contributed_days']
+                )
+                
+                current_available = max(total_contributions - commission, Decimal('0'))
+            
+            total_available = total_from_closed + current_available
+            print(f"Client {self.name} total balance: closed_cycles={total_from_closed}, current={current_available}, total={total_available}")
+            return total_available
             
         except Exception as e:
             print(f"Error calculating balance for client {self.name}: {e}")
