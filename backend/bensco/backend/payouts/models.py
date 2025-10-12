@@ -52,12 +52,15 @@ class PayoutModel(models.Model):
     def save(self, *args, **kwargs):
         # Auto-validation logic
         if self.client and self.requested_amount:
-            self.available_balance = self.client.get_available_balance()
-            
-            # Auto-reject if requested amount > available balance (invalid request)
-            if self.requested_amount > self.available_balance:
-                self.status = self.StatusChoices.AUTO_REJECTED
-                self.rejection_reason = f"Requested amount (₵{self.requested_amount}) exceeds available balance (₵{self.available_balance})"
+            try:
+                self.available_balance = self.client.get_available_balance()
+                
+                # Auto-reject if requested amount > available balance (invalid request)
+                if self.requested_amount > self.available_balance:
+                    self.status = self.StatusChoices.AUTO_REJECTED
+                    self.rejection_reason = f"Requested amount (₵{self.requested_amount}) exceeds available balance (₵{self.available_balance})"
+            except Exception as e:
+                print(f"Error in payout save validation: {e}")
         
         super().save(*args, **kwargs)
     

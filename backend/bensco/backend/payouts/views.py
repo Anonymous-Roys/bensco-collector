@@ -17,12 +17,32 @@ def create_payout(request):
         return Response(serializer.data, status=201)
     return Response(serializer.errors, status=400)
 
-#list all payouts
+#list all payouts with filtering
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_payouts(request):
-    instance = PayoutModel.objects.all()
-    serializer = PayoutModelSerializer(instance=instance, many=True)
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can view all payouts.'}, status=403)
+    
+    payouts = PayoutModel.objects.all()
+    
+    # Apply filters
+    status_filter = request.query_params.get('status')
+    if status_filter:
+        payouts = payouts.filter(status=status_filter)
+    
+    client_filter = request.query_params.get('client')
+    if client_filter:
+        payouts = payouts.filter(client__name__icontains=client_filter)
+    
+    collector_filter = request.query_params.get('collector')
+    if collector_filter:
+        payouts = payouts.filter(requested_by__username__icontains=collector_filter)
+    
+    # Order by most recent first
+    payouts = payouts.order_by('-requested_on')
+    
+    serializer = PayoutModelSerializer(payouts, many=True)
     return Response(serializer.data, status=200)
 
 
@@ -89,16 +109,13 @@ def mark_payout_paid(request, payout_id):
     if request.user.role != 'admin':
         return Response({'error': 'Only admins can mark payouts as paid'}, status=403)
 
-    # Mark as paid and deduct from client's cycle
+    # Mark as paid - the payout record itself tracks the deduction
     payout.status = PayoutModel.StatusChoices.PAID
     payout.paid_on = timezone.now().date()
-    
-    # Deduct the payout amount from the cycle's total_saved
-    if payout.cycle:
-        payout.cycle.total_saved = max(0, (payout.cycle.total_saved or 0) - payout.net_payout)
-        payout.cycle.save()
-    
     payout.save()
+    
+    # The available balance calculation already accounts for paid payouts
+    # by subtracting them from each cycle's available amount
 
     return Response({'message': 'Payout marked as paid and deducted from client balance'}, status=200)
 
@@ -234,22 +251,18 @@ def request_client_payout(request, client_id):
         if existing_cycle_payout:
             return Response({'detail': 'A payout request already exists for this client and cycle.'}, status=400)
         
-        # Create payout request (validation happens in model save)
-        try:
-            payout = PayoutModel.objects.create(
-                client=client,
-                cycle=current_cycle,
-                payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC,
-                requested_amount=requested_amount,
-                available_balance=available_balance,
-                total_paid=total_collected,
-                commission=commission,
-                net_payout=min(requested_amount, available_balance),
-                requested_by=request.user
-            )
-        except Exception as e:
-            print(f"Error creating payout: {str(e)}")
-            return Response({'detail': f'Error creating payout: {str(e)}'}, status=400)
+        # Create payout request
+        payout = PayoutModel.objects.create(
+            client=client,
+            cycle=current_cycle,
+            payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC,
+            requested_amount=requested_amount,
+            available_balance=available_balance,
+            total_paid=total_collected,
+            commission=commission,
+            net_payout=min(requested_amount, available_balance),
+            requested_by=request.user
+        )
         
         serializer = PayoutModelSerializer(payout)
         return Response(serializer.data, status=201)
