@@ -67,8 +67,8 @@ def get_clients_view(request):
         if collector_id:
             clients = clients.filter(collector__id=collector_id)
     elif request.user.role == 'collector':
-        # clients = ClientModel.objects.filter(collector=request.user)
-        clients = ClientModel.objects.all()
+        clients = ClientModel.objects.filter(collector=request.user)
+        # clients = ClientModel.objects.all()
     else:
         return Response({'detail': 'Unauthorized role.'}, status=403)
 
