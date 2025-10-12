@@ -54,10 +54,10 @@ class PayoutModel(models.Model):
         if self.client and self.requested_amount:
             self.available_balance = self.client.get_available_balance()
             
-            # Auto-reject if requested amount <= available balance
-            if self.requested_amount <= self.available_balance:
+            # Auto-reject if requested amount > available balance (invalid request)
+            if self.requested_amount > self.available_balance:
                 self.status = self.StatusChoices.AUTO_REJECTED
-                self.rejection_reason = f"Requested amount (₵{self.requested_amount}) must exceed available balance (₵{self.available_balance})"
+                self.rejection_reason = f"Requested amount (₵{self.requested_amount}) exceeds available balance (₵{self.available_balance})"
         
         super().save(*args, **kwargs)
     

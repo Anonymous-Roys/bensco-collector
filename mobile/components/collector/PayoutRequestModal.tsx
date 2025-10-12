@@ -9,6 +9,8 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
@@ -78,21 +80,29 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
       return;
     }
 
-    // Show warning if amount <= available balance (will be auto-rejected)
-    if (amount <= clientBalance.available_balance) {
+    // Show warning if amount > available balance (will be auto-rejected)
+    if (amount > clientBalance.available_balance) {
       Alert.alert(
         'Invalid Request',
-        `Requested amount (₵${amount}) must exceed available balance (₵${clientBalance.available_balance.toFixed(2)}) to require admin approval.`,
-        [{ text: 'OK' }]
+        `Requested amount (₵${amount}) exceeds available balance (₵${clientBalance.available_balance.toFixed(2)}). This request will be automatically rejected.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Submit Anyway', onPress: () => submitRequest(amount) }
+        ]
       );
       return;
     }
+    
+    submitRequest(amount);
+  };
+  
+  const submitRequest = async (amount: number) => {
 
     try {
       await dispatch(requestClientPayout({ clientId: client.id, requestedAmount: amount })).unwrap();
       Alert.alert(
         'Success',
-        'Payout request submitted for admin approval',
+        'Payout request submitted successfully',
         [{ text: 'OK', onPress: () => { onSuccess(); onClose(); } }]
       );
     } catch (error) {
@@ -117,7 +127,11 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <MaterialCommunityIcons name="close" size={24} color={Colors.light.text.primary} />
@@ -126,7 +140,11 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
           <View style={styles.placeholder} />
         </View>
 
-        <ScrollView style={styles.content}>
+        <ScrollView 
+          style={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={Colors.light.primary.red} />
@@ -196,9 +214,16 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
                     keyboardType="numeric"
                     editable={!submitting}
                   />
+                  <TouchableOpacity 
+                    style={styles.maxButton}
+                    onPress={() => setRequestedAmount(clientBalance.available_balance.toFixed(2))}
+                    disabled={submitting}
+                  >
+                    <Text style={styles.maxButtonText}>MAX</Text>
+                  </TouchableOpacity>
                 </View>
                 <Text style={styles.inputNote}>
-                  Amount must exceed available balance (₵{clientBalance.available_balance.toFixed(2)}) to require admin approval
+                  Available balance: ₵{clientBalance.available_balance.toFixed(2)}. Amounts exceeding this will be auto-rejected.
                 </Text>
               </View>
 
@@ -220,7 +245,7 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
             </>
           ) : null}
         </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -356,6 +381,18 @@ const styles = StyleSheet.create({
     color: Colors.light.text.primary,
     paddingVertical: 16,
   },
+  maxButton: {
+    backgroundColor: Colors.light.primary.red,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  maxButtonText: {
+    color: Colors.light.text.onPrimary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
   inputNote: {
     fontSize: 12,
     color: Colors.light.text.secondary,
@@ -370,7 +407,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: 60,
   },
   submitButtonDisabled: {
     opacity: 0.6,
