@@ -217,6 +217,16 @@ def request_client_payout(request, client_id):
         commission = client.calculate_commission(total_collected, contributing_days)
         available_balance = client.get_available_balance()
         
+        # Check for existing payout for this client and cycle
+        existing_cycle_payout = PayoutModel.objects.filter(
+            client=client,
+            cycle=current_cycle,
+            payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC
+        ).exists()
+        
+        if existing_cycle_payout:
+            return Response({'detail': 'A payout request already exists for this client and cycle.'}, status=400)
+        
         # Create payout request (validation happens in model save)
         try:
             payout = PayoutModel.objects.create(
@@ -227,10 +237,11 @@ def request_client_payout(request, client_id):
                 available_balance=available_balance,
                 total_paid=total_collected,
                 commission=commission,
-                net_payout=min(requested_amount, available_balance),  # Actual payout amount
+                net_payout=min(requested_amount, available_balance),
                 requested_by=request.user
             )
         except Exception as e:
+            print(f"Error creating payout: {str(e)}")
             return Response({'detail': f'Error creating payout: {str(e)}'}, status=400)
         
         serializer = PayoutModelSerializer(payout)
