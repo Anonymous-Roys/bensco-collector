@@ -210,16 +210,15 @@ def request_client_payout(request, client_id):
         if requested_amount <= 0:
             return Response({'detail': 'Requested amount must be greater than 0.'}, status=400)
         
-        # Check if there's already a pending payout for this client
+        # Check if there's already a pending/approved payout for this client
         existing_payout = PayoutModel.objects.filter(
             client=client,
-            requested_by=request.user,
             status__in=['pending', 'approved'],
             payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC
         ).exists()
         
         if existing_payout:
-            return Response({'detail': 'A payout request for this client is already pending.'}, status=400)
+            return Response({'detail': 'A payout request for this client is already pending or approved.'}, status=400)
         
         # Get current cycle contributions
         current_cycle = client.savings_cycles.filter(status='active').first()
@@ -241,15 +240,7 @@ def request_client_payout(request, client_id):
         commission = client.calculate_commission(total_collected, contributing_days)
         available_balance = client.get_available_balance()
         
-        # Check for existing payout for this client and cycle
-        existing_cycle_payout = PayoutModel.objects.filter(
-            client=client,
-            cycle=current_cycle,
-            payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC
-        ).exists()
-        
-        if existing_cycle_payout:
-            return Response({'detail': 'A payout request already exists for this client and cycle.'}, status=400)
+
         
         # Create payout request
         payout = PayoutModel.objects.create(

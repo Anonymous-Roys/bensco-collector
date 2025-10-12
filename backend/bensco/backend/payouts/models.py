@@ -44,8 +44,8 @@ class PayoutModel(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=['client', 'cycle'], 
-                condition=models.Q(payout_type='client_specific'),
-                name='one_payout_per_client_cycle'
+                condition=models.Q(payout_type='client_specific') & models.Q(status__in=['pending', 'approved']),
+                name='one_pending_payout_per_client_cycle'
             )
         ]
 
