@@ -134,6 +134,17 @@ def get_payout_stats(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def get_collector_payouts(request):
+    """Get collector's own payout requests"""
+    if request.user.role != 'collector':
+        return Response({'detail': 'Only collectors can view their payouts.'}, status=403)
+    
+    payouts = PayoutModel.objects.filter(requested_by=request.user).order_by('-requested_on')
+    serializer = PayoutModelSerializer(payouts, many=True)
+    return Response(serializer.data, status=200)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_client_balance(request, client_id):
     """Get client's available balance for payout"""
     if request.user.role != 'collector':

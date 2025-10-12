@@ -1,6 +1,6 @@
 from django.urls import path
 from . import views
-from .views import get_payout_stats, request_client_payout, get_client_balance
+from .views import get_payout_stats, request_client_payout, get_client_balance, get_collector_payouts
 
 urlpatterns = [
     path('request/', views.create_payout, name='create-payout'),
@@ -11,4 +11,5 @@ urlpatterns = [
     path('stats/', get_payout_stats, name='payout-stats'),
     path('request-client/<uuid:client_id>/', request_client_payout, name='request-client-payout'),
     path('client-balance/<uuid:client_id>/', get_client_balance, name='client-balance'),
+    path('my-payouts/', get_collector_payouts, name='collector-payouts'),
 ]
