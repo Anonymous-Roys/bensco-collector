@@ -62,7 +62,9 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
     try {
       await dispatch(fetchClientBalance(client.id)).unwrap();
     } catch (error) {
-      Alert.alert('Error', 'Failed to fetch client balance');
+      console.error('Failed to fetch client balance:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch client balance';
+      Alert.alert('Error', `Failed to fetch client balance: ${errorMessage}`);
       onClose();
     }
   };

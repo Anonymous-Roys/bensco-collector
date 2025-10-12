@@ -29,13 +29,13 @@ export const API_CONFIG = {
   
   // Payout endpoints
   PAYOUTS: {
-    REQUEST: '/payouts/request/',
-    REQUEST_CLIENT: '/payouts/request-client/:client_id/',
-    APPROVE: '/payouts/approve/:id/',
-    LIST: '/payouts/list/',
-    REJECT: '/payouts/reject/:id/',
-    MARK_PAID: '/payouts/mark-paid/:id/',
-    CLIENT_BALANCE: '/payouts/client-balance/:client_id/',
+    REQUEST: '/pay/request/',
+    REQUEST_CLIENT: '/pay/request-client/:client_id/',
+    APPROVE: '/pay/approve/:id/',
+    LIST: '/pay/list/',
+    REJECT: '/pay/reject/:id/',
+    MARK_PAID: '/pay/mark-paid/:id/',
+    CLIENT_BALANCE: '/pay/client-balance/:client_id/',
   },
 };
 

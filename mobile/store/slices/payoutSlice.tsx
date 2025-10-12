@@ -31,9 +31,12 @@ export const fetchClientBalance = createAsyncThunk(
   'payouts/fetchClientBalance',
   async (clientId: string, { rejectWithValue }) => {
     try {
+      console.log('Redux: Fetching client balance for:', clientId);
       const response = await payoutsAPI.getClientBalance(clientId);
+      console.log('Redux: Client balance response:', response);
       return response;
     } catch (error) {
+      console.error('Redux: Client balance error:', error);
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch client balance');
     }
   }

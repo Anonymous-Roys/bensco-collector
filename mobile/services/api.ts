@@ -275,10 +275,14 @@ export const payoutsAPI = {
   getClientBalance: async (clientId: string): Promise<any> => {
     try {
       const url = API_CONFIG.PAYOUTS.CLIENT_BALANCE.replace(':client_id', clientId);
+      console.log('Fetching client balance from:', `${API_CONFIG.BASE_URL}${url}`);
       const response = await api.get(url);
       return response.data;
     } catch (error) {
+      console.error('Client balance API error:', error);
       if (axios.isAxiosError(error)) {
+        console.error('Response status:', error.response?.status);
+        console.error('Response data:', error.response?.data);
         const apiError: ApiError = error.response?.data || { detail: 'Failed to get client balance' };
         throw new Error(apiError.detail);
       }
