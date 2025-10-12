@@ -23,7 +23,6 @@ def run():
         transaction.commit()
 
     print("✅ All duplicate indexes cleaned.")
-
     print("🚀 Running migrations in correct order...")
     call_command("migrate", "clients")
     call_command("migrate", "savings")
