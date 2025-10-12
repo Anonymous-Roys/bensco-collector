@@ -245,6 +245,36 @@ export const contributionAPI = {
   },
 };
 
+// Savings cycle API methods
+export const savingsAPI = {
+  getClientCycles: async (clientId: string): Promise<any> => {
+    try {
+      const url = API_CONFIG.SAVINGS.CLIENT_CYCLES.replace(':client_id', clientId);
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const apiError: ApiError = error.response?.data || { detail: 'Failed to fetch client cycles' };
+        throw new Error(apiError.detail);
+      }
+      throw error;
+    }
+  },
+  closeCycle: async (clientId: string): Promise<any> => {
+    try {
+      const url = API_CONFIG.SAVINGS.CLOSE_CYCLE.replace(':client_id', clientId);
+      const response = await api.post(url);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const apiError: ApiError = error.response?.data || { detail: 'Failed to close cycle' };
+        throw new Error(apiError.detail);
+      }
+      throw error;
+    }
+  },
+};
+
 // Payouts API methods
 export const payoutsAPI = {
   requestPayout: async (payload: any): Promise<any> => {

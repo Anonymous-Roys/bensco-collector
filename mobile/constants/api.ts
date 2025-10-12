@@ -37,6 +37,12 @@ export const API_CONFIG = {
     MARK_PAID: '/pay/mark-paid/:id/',
     CLIENT_BALANCE: '/pay/client-balance/:client_id/',
   },
+  
+  // Savings cycle endpoints
+  SAVINGS: {
+    CLIENT_CYCLES: '/savings/client-cycles/:client_id/',
+    CLOSE_CYCLE: '/savings/close-cycle/:client_id/',
+  },
 };
 
 // API Response types

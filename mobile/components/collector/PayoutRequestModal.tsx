@@ -18,6 +18,7 @@ import { Colors } from '@/constants/Colors';
 import { Client, ClientBalance } from '@/constants/types';
 import { RootState, AppDispatch } from '@/store';
 import { fetchClientBalance, requestClientPayout, clearError } from '@/store/slices/payoutSlice';
+import { ClientCycleCard } from './ClientCycleCard';
 
 interface PayoutRequestModalProps {
   visible: boolean;
@@ -168,27 +169,11 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
                 </View>
               </View>
 
-              {/* Current Cycle Info */}
-              {clientBalance.current_cycle && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Current Cycle</Text>
-                  <View style={styles.infoCard}>
-                    <View style={styles.cycleRow}>
-                      <Text style={styles.cycleLabel}>Total Collected:</Text>
-                      <Text style={styles.cycleValue}>₵{clientBalance.current_cycle.total_collected.toFixed(2)}</Text>
-                    </View>
-                    <View style={styles.cycleRow}>
-                      <Text style={styles.cycleLabel}>Contributing Days:</Text>
-                      <Text style={styles.cycleValue}>{clientBalance.current_cycle.contributing_days} / {clientBalance.current_cycle.cycle_length}</Text>
-                    </View>
-                    <View style={styles.cycleRow}>
-                      <Text style={styles.cycleLabel}>Commission:</Text>
-                      <Text style={styles.cycleValue}>₵{clientBalance.current_cycle.commission.toFixed(2)}</Text>
-                    </View>
-                    <Text style={styles.commissionInfo}>{getCommissionInfo()}</Text>
-                  </View>
-                </View>
-              )}
+              {/* Cycle Tracking */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Cycle Information</Text>
+                <ClientCycleCard client={client} onCycleUpdate={fetchBalance} />
+              </View>
 
               {/* Available Balance */}
               <View style={styles.section}>
