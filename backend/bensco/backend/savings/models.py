@@ -24,8 +24,6 @@
 
 import uuid
 from django.db import models
-# from users.models import UserModel
-# from clients.models import ClientModel
 from datetime import date, timedelta
 from django.db.models import Sum
 
@@ -62,6 +60,16 @@ class SavingsCycleModel(models.Model):
     #             self.save()
     #             return True
     #     return False
+    def get_business_days_count(self, start_date, end_date):
+        """Count business days (Mon-Fri) between two dates"""
+        current = start_date
+        count = 0
+        while current <= end_date:
+            if current.weekday() < 5:  # Monday=0, Friday=4
+                count += 1
+            current += timedelta(days=1)
+        return count
+    
     def check_and_close(self):
         if self.status != self.Status.ACTIVE:
             return False
@@ -70,9 +78,10 @@ class SavingsCycleModel(models.Model):
             total_days=Sum('days_covered')
         )['total_days'] or 0
 
-        days_passed = (date.today() - self.start_date).days
+        # Count only business days (Mon-Fri)
+        business_days_passed = self.get_business_days_count(self.start_date, date.today())
 
-        if contrib_days >= self.cycle_length or days_passed >= self.cycle_length:
+        if contrib_days >= self.cycle_length or business_days_passed >= self.cycle_length:
             self.status = self.Status.CLOSED
             self.end_date = date.today()
             self.save()

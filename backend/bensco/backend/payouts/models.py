@@ -10,17 +10,21 @@ class PayoutModel(models.Model):
         APPROVED = 'approved', 'Approved'
         REJECTED = 'rejected', 'Rejected'
         PAID = 'paid', 'Paid'
+        AUTO_REJECTED = 'auto_rejected', 'Auto Rejected'
     
     class PayoutTypeChoices(models.TextChoices):
         CLIENT_SPECIFIC = 'client_specific', 'Client Specific'
         BULK = 'bulk', 'Bulk Payout'
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    client = models.ForeignKey(ClientModel, on_delete=models.CASCADE, null=True, blank=True)  # Optional for client-specific payouts
-    cycle = models.ForeignKey(SavingsCycleModel, on_delete=models.CASCADE, null=True, blank=True)  # Optional for bulk payouts
+    client = models.ForeignKey(ClientModel, on_delete=models.CASCADE, null=True, blank=True)
+    cycle = models.ForeignKey(SavingsCycleModel, on_delete=models.CASCADE, null=True, blank=True)
     
-    payout_type = models.CharField(max_length=20, choices=PayoutTypeChoices.choices, default=PayoutTypeChoices.BULK)
+    payout_type = models.CharField(max_length=20, choices=PayoutTypeChoices.choices, default=PayoutTypeChoices.CLIENT_SPECIFIC)
     
+    # New field for requested withdrawal amount
+    requested_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    available_balance = models.DecimalField(max_digits=10, decimal_places=2)
     total_paid = models.DecimalField(max_digits=10, decimal_places=2)
     commission = models.DecimalField(max_digits=10, decimal_places=2)
     net_payout = models.DecimalField(max_digits=10, decimal_places=2)
@@ -45,7 +49,19 @@ class PayoutModel(models.Model):
             )
         ]
 
+    def save(self, *args, **kwargs):
+        # Auto-validation logic
+        if self.client and self.requested_amount:
+            self.available_balance = self.client.get_available_balance()
+            
+            # Auto-reject if requested amount <= available balance
+            if self.requested_amount <= self.available_balance:
+                self.status = self.StatusChoices.AUTO_REJECTED
+                self.rejection_reason = f"Requested amount (₵{self.requested_amount}) must exceed available balance (₵{self.available_balance})"
+        
+        super().save(*args, **kwargs)
+    
     def __str__(self):
         if self.payout_type == self.PayoutTypeChoices.CLIENT_SPECIFIC:
-            return f"{self.client.name} - ₵{self.net_payout} ({self.status})"
+            return f"{self.client.name} - ₵{self.requested_amount} ({self.status})"
         return f"Bulk Payout - ₵{self.net_payout} ({self.status})"

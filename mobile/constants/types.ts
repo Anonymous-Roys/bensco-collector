@@ -44,6 +44,41 @@ export interface ContributionCreateRequest {
 // Flexible list shape
 export type ContributionListResponse = Contribution[] | ApiResponse<Contribution>;
 
+// Payout types
+export interface PayoutRequest {
+  id: string;
+  client: string;
+  client_name?: string;
+  payout_type: 'client_specific' | 'bulk';
+  requested_amount: number;
+  available_balance: number;
+  total_paid: number;
+  commission: number;
+  net_payout: number;
+  status: 'pending' | 'approved' | 'rejected' | 'paid' | 'auto_rejected';
+  requested_by: string;
+  requested_on: string;
+  approved_by?: string;
+  approved_on?: string;
+  paid_on?: string;
+  rejection_reason?: string;
+}
+
+export interface ClientBalance {
+  client_id: string;
+  client_name: string;
+  available_balance: number;
+  is_fixed: boolean;
+  daily_amount: number;
+  current_cycle: {
+    total_collected: number;
+    contributing_days: number;
+    commission: number;
+    cycle_length: number;
+    start_date: string;
+  } | null;
+}
+
 // Legacy types for backward compatibility (if needed)
 export interface LegacyClient {
   id: string;

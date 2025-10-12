@@ -259,6 +259,32 @@ export const payoutsAPI = {
       throw error;
     }
   },
+  requestClientPayout: async (clientId: string, requestedAmount: number): Promise<any> => {
+    try {
+      const url = API_CONFIG.PAYOUTS.REQUEST_CLIENT.replace(':client_id', clientId);
+      const response = await api.post(url, { requested_amount: requestedAmount });
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const apiError: ApiError = error.response?.data || { detail: 'Failed to request client payout' };
+        throw new Error(apiError.detail);
+      }
+      throw error;
+    }
+  },
+  getClientBalance: async (clientId: string): Promise<any> => {
+    try {
+      const url = API_CONFIG.PAYOUTS.CLIENT_BALANCE.replace(':client_id', clientId);
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const apiError: ApiError = error.response?.data || { detail: 'Failed to get client balance' };
+        throw new Error(apiError.detail);
+      }
+      throw error;
+    }
+  },
   listPayouts: async (): Promise<any> => {
     try {
       const response = await api.get(API_CONFIG.PAYOUTS.LIST);

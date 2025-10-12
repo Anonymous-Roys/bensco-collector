@@ -35,6 +35,7 @@ export const API_CONFIG = {
     LIST: '/payouts/list/',
     REJECT: '/payouts/reject/:id/',
     MARK_PAID: '/payouts/mark-paid/:id/',
+    CLIENT_BALANCE: '/payouts/client-balance/:client_id/',
   },
 };
 

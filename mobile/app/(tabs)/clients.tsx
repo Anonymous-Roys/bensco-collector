@@ -23,6 +23,7 @@ import { Client } from '@/constants/types';
 import { ClientCard } from '@/components/ui/common/ClientCard';
 import { ClientInfoModal } from '@/components/ui/common/ClientInfoModal';
 import { CollectionModal } from '@/components/ui/common/CollectionModel';
+import { PayoutRequestModal } from '@/components/collector/PayoutRequestModal';
 
 export default function ClientsScreen() {
   const dispatch = useDispatch<AppDispatch>();
@@ -34,6 +35,7 @@ export default function ClientsScreen() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showClientModal, setShowClientModal] = useState(false);
   const [showQuickCollectModal, setShowQuickCollectModal] = useState(false);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [collectAmount, setCollectAmount] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'amount' | 'date'>('name');
@@ -105,27 +107,14 @@ export default function ClientsScreen() {
   };
 
   // Handle payout request
-  const handleRequestPayout = async (client: Client) => {
-    try {
-      const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`https://bensco-collector.onrender.com/pay/request-client/${client.id}/`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        Alert.alert('Success', `Payout request submitted for ${client.name}`);
-      } else {
-        Alert.alert('Error', data.detail || 'Failed to request payout');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to request payout. Please try again.');
-    }
+  const handleRequestPayout = (client: Client) => {
+    setSelectedClient(client);
+    setShowPayoutModal(true);
+  };
+  
+  const handlePayoutSuccess = () => {
+    // Refresh clients list after successful payout request
+    dispatch(fetchClients());
   };
 
   // Handle refresh
@@ -319,6 +308,17 @@ export default function ClientsScreen() {
           loading={contributionLoading}
         />
       </Modal>
+
+      {/* Payout Request Modal */}
+      <PayoutRequestModal
+        visible={showPayoutModal}
+        client={selectedClient}
+        onClose={() => {
+          setShowPayoutModal(false);
+          setSelectedClient(null);
+        }}
+        onSuccess={handlePayoutSuccess}
+      />
     </View>
   );
 }
