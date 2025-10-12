@@ -2,29 +2,29 @@ from django.core.management import call_command
 from django.db import connection, transaction
 
 def run():
-    print("🧹 Cleaning up duplicate index if it exists...")
+    print("🧹 Checking for duplicate indexes in Postgres...")
 
     with connection.cursor() as cursor:
-        # Drop the problematic index if it exists
         cursor.execute("""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1
-                    FROM pg_class c
-                    JOIN pg_namespace n ON n.oid = c.relnamespace
-                    WHERE c.relname = 'savings_sav_client__538ebf_idx'
-                ) THEN
-                    EXECUTE 'DROP INDEX IF EXISTS savings_sav_client__538ebf_idx;';
-                END IF;
-            END
-            $$;
+            SELECT indexname
+            FROM pg_indexes
+            WHERE schemaname = 'public'
+              AND indexname LIKE 'savings_sav_%_idx';
         """)
+        indexes = [row[0] for row in cursor.fetchall()]
+
+        if not indexes:
+            print("✅ No savings-related indexes found.")
+        else:
+            for index in indexes:
+                print(f"⚙️ Dropping existing index: {index}")
+                cursor.execute(f'DROP INDEX IF EXISTS "{index}";')
+
         transaction.commit()
 
-        print("✅ Index cleaned up if it existed.")
+    print("✅ All duplicate indexes cleaned.")
 
-    print("🚀 Now running migrations in correct order...")
+    print("🚀 Running migrations in correct order...")
     call_command("migrate", "clients")
     call_command("migrate", "savings")
     call_command("migrate")
