@@ -20,6 +20,8 @@ class ClientModelSerializer(serializers.ModelSerializer):
     collector_zone = serializers.CharField(source='collector.assigned_zone', read_only=True)
     address_label = serializers.CharField(source='address.label', read_only=True)
     address_region = serializers.CharField(source='address.region', read_only=True)
+    total_net_savings = serializers.SerializerMethodField()
+    available_balance = serializers.SerializerMethodField()
 
     class Meta:
         model = ClientModel
@@ -41,9 +43,17 @@ class ClientModelSerializer(serializers.ModelSerializer):
             'address_region',
             'dob',
             'next_of_kin',
+            'total_net_savings',
+            'available_balance',
         ]
-        read_only_fields = ['id', 'unique_code', 'collector_username', 'collector_email', 'collector_zone', 'created_at', 'address_label', 'address_region']
+        read_only_fields = ['id', 'unique_code', 'collector_username', 'collector_email', 'collector_zone', 'created_at', 'address_label', 'address_region', 'total_net_savings', 'available_balance']
 
+    def get_total_net_savings(self, obj):
+        return str(obj.get_total_net_savings())
+    
+    def get_available_balance(self, obj):
+        return str(obj.get_available_balance())
+    
     def create(self, validated_data):
         if not validated_data.get('unique_code'):
             validated_data['unique_code'] = generate_unique_code(ClientModel, 'CLI')

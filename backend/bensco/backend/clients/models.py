@@ -67,57 +67,52 @@ class ClientModel(models.Model):
         ).order_by('-end_date')
     
     def get_available_balance(self):
-        """Get client's available balance for payout from all cycles"""
+        """Get client's net available balance (after commission and payouts)"""
         from decimal import Decimal
         from django.db.models import Sum
         
         try:
-            # Get total from all closed cycles that haven't been fully paid out
-            closed_cycles = self.savings_cycles.filter(
-                status__in=['closed', 'paid_out']
-            )
+            total_net_balance = Decimal('0')
             
-            total_from_closed = Decimal('0')
-            for cycle in closed_cycles:
+            # Process all cycles (closed and active)
+            all_cycles = self.savings_cycles.all()
+            
+            for cycle in all_cycles:
+                # Get total contributions for this cycle
                 cycle_contributions = cycle.contributions.aggregate(
                     total=Sum('amount')
                 )['total'] or 0
                 
+                if cycle_contributions <= 0:
+                    continue
+                
+                # Calculate commission for this cycle
                 cycle_commission = self.calculate_commission(
                     cycle_contributions,
                     cycle.contributions.aggregate(days=Sum('days_covered'))['days'] or 0
                 )
+                
+                # Calculate net amount (contributions - commission)
+                cycle_net = cycle_contributions - cycle_commission
                 
                 # Subtract any payouts already made for this cycle
                 paid_out = cycle.payouts.filter(
                     status='paid'
                 ).aggregate(total=Sum('net_payout'))['total'] or 0
                 
-                cycle_available = cycle_contributions - cycle_commission - paid_out
-                total_from_closed += max(cycle_available, Decimal('0'))
+                # Available from this cycle = net amount - payouts made
+                cycle_available = cycle_net - paid_out
+                total_net_balance += max(cycle_available, Decimal('0'))
             
-            # Add current cycle balance
-            current_cycle = self.get_current_cycle()
-            current_available = Decimal('0')
-            
-            if current_cycle:
-                progress = current_cycle.get_cycle_progress()
-                total_contributions = progress['total_contributions']
-                
-                commission = self.calculate_commission(
-                    total_contributions,
-                    progress['contributed_days']
-                )
-                
-                current_available = max(total_contributions - commission, Decimal('0'))
-            
-            total_available = total_from_closed + current_available
-            print(f"Client {self.name} total balance: closed_cycles={total_from_closed}, current={current_available}, total={total_available}")
-            return total_available
+            return total_net_balance
             
         except Exception as e:
             print(f"Error calculating balance for client {self.name}: {e}")
             return Decimal('0')
+    
+    def get_total_net_savings(self):
+        """Get total net savings across all cycles (for display purposes)"""
+        return self.get_available_balance()
     
     def get_total_savings_history(self):
         """Get total savings across all completed cycles"""

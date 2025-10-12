@@ -63,5 +63,5 @@ class PayoutModel(models.Model):
     
     def __str__(self):
         if self.payout_type == self.PayoutTypeChoices.CLIENT_SPECIFIC:
-            return f"{self.client.name} - ₵{self.requested_amount} ({self.status})"
+            return f"{self.client.name if self.client else 'Unknown'} - ₵{self.requested_amount} ({self.status})"
         return f"Bulk Payout - ₵{self.net_payout} ({self.status})"
