@@ -44,6 +44,13 @@ class SavingsCycleModel(models.Model):
     total_saved = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     commission_deducted = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['client', 'status']),
+            models.Index(fields=['status', 'end_date']),
+        ]
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -70,21 +77,50 @@ class SavingsCycleModel(models.Model):
             current += timedelta(days=1)
         return count
     
+    def get_cycle_progress(self):
+        """Get current cycle progress information"""
+        contrib_days = self.contributions.aggregate(
+            total_days=Sum('days_covered')
+        )['total_days'] or 0
+        
+        business_days_passed = self.get_business_days_count(self.start_date, date.today())
+        total_contributions = self.contributions.aggregate(
+            total=Sum('amount')
+        )['total'] or 0
+        
+        return {
+            'contributed_days': contrib_days,
+            'business_days_passed': business_days_passed,
+            'total_contributions': total_contributions,
+            'completion_percentage': min((contrib_days / self.cycle_length) * 100, 100) if self.cycle_length > 0 else 0,
+            'is_complete': contrib_days >= self.cycle_length
+        }
+    
     def check_and_close(self):
         if self.status != self.Status.ACTIVE:
             return False
 
-        contrib_days = self.contributions.aggregate(
-            total_days=Sum('days_covered')
-        )['total_days'] or 0
-
-        # Count only business days (Mon-Fri)
-        business_days_passed = self.get_business_days_count(self.start_date, date.today())
-
-        if contrib_days >= self.cycle_length or business_days_passed >= self.cycle_length:
+        progress = self.get_cycle_progress()
+        
+        if progress['is_complete'] or progress['business_days_passed'] >= self.cycle_length:
             self.status = self.Status.CLOSED
             self.end_date = date.today()
+            # Update total_saved
+            self.total_saved = progress['total_contributions']
             self.save()
             return True
 
         return False
+    
+    def get_available_for_payout(self):
+        """Calculate amount available for payout from this cycle"""
+        if self.status != self.Status.CLOSED:
+            return 0
+            
+        # Calculate commission
+        commission = self.client.calculate_commission(
+            self.total_saved,
+            self.contributions.aggregate(days=Sum('days_covered'))['days'] or 0
+        )
+        
+        return max(self.total_saved - commission, 0)

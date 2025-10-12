@@ -42,46 +42,75 @@ class ClientModel(models.Model):
                 return Decimal(str(total_collected)) / Decimal(str(contributing_days))
             return Decimal('0')
     
+    def get_current_cycle(self):
+        """Get or create current active savings cycle"""
+        from savings.models import SavingsCycleModel
+        
+        # Check for existing active cycle
+        current_cycle = self.savings_cycles.filter(
+            status=SavingsCycleModel.Status.ACTIVE
+        ).first()
+        
+        if not current_cycle:
+            # Create new cycle if none exists
+            current_cycle = SavingsCycleModel.objects.create(
+                client=self,
+                cycle_length=31  # Default 31 business days
+            )
+            
+        return current_cycle
+    
+    def get_cycle_history(self):
+        """Get all past cycles for this client"""
+        return self.savings_cycles.exclude(
+            status='active'
+        ).order_by('-end_date')
+    
     def get_available_balance(self):
-        """Get client's available balance for payout"""
-        from contributions.models import ContributionModel
+        """Get client's available balance for payout from current cycle"""
         from decimal import Decimal
         
         try:
-            total_contributions = ContributionModel.objects.filter(
-                client=self
-            ).aggregate(total=models.Sum('amount'))['total'] or Decimal('0')
+            current_cycle = self.get_current_cycle()
             
-            # For now, don't subtract payouts to keep it simple
-            # total_payouts = PayoutModel.objects.filter(
-            #     client=self,
-            #     status=PayoutModel.StatusChoices.PAID
-            # ).aggregate(total=models.Sum('net_payout'))['total'] or Decimal('0')
+            if not current_cycle:
+                return Decimal('0')
+            
+            # Get cycle progress
+            progress = current_cycle.get_cycle_progress()
+            total_contributions = progress['total_contributions']
             
             # Calculate commission for current cycle
-            current_cycle = self.savings_cycles.filter(
-                status='active'
-            ).first()
+            commission = self.calculate_commission(
+                total_contributions,
+                progress['contributed_days']
+            )
             
-            if current_cycle:
-                cycle_contributions = current_cycle.contributions.aggregate(
-                    total=models.Sum('amount'),
-                    days=models.Count('date', distinct=True)
-                )
-                commission = self.calculate_commission(
-                    cycle_contributions['total'] or Decimal('0'),
-                    cycle_contributions['days'] or 0
-                )
-            else:
-                commission = Decimal('0')
-                
             available = total_contributions - commission
-            print(f"Client {self.name} balance calculation: contributions={total_contributions}, commission={commission}, available={available}")
-            return max(available, Decimal('0'))  # Ensure non-negative
+            print(f"Client {self.name} balance: contributions={total_contributions}, commission={commission}, available={available}")
+            return max(available, Decimal('0'))
             
         except Exception as e:
             print(f"Error calculating balance for client {self.name}: {e}")
             return Decimal('0')
+    
+    def get_total_savings_history(self):
+        """Get total savings across all completed cycles"""
+        from decimal import Decimal
+        
+        completed_cycles = self.savings_cycles.filter(
+            status__in=['closed', 'paid_out']
+        )
+        
+        return {
+            'total_cycles': completed_cycles.count(),
+            'total_saved': completed_cycles.aggregate(
+                total=models.Sum('total_saved')
+            )['total'] or Decimal('0'),
+            'cycles': completed_cycles.values(
+                'id', 'start_date', 'end_date', 'total_saved', 'status'
+            )
+        }
 
     def __str__(self):
         return self.name

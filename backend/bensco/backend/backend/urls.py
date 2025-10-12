@@ -23,6 +23,7 @@ urlpatterns = [
     path('auth/', view=include('users.urls')),
     path('clients/', view=include('clients.urls')),
     path('contributions/', view=include('contributions.urls')),
+    path('savings/', view=include('savings.urls')),
     path('', view=include('core.urls')),
     path('pay/', view=include('payouts.urls')),
     path('notifications/', view=include('notifications.urls')),
