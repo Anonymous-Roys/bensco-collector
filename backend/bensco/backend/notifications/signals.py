@@ -50,7 +50,7 @@ def create_payout_notification(sender, instance, created, **kwargs):
         
         # Count pending payouts
         pending_payouts = Payout.objects.filter(status='pending')
-        total_amount = sum(payout.amount for payout in pending_payouts)
+        total_amount = sum(payout.requested_amount for payout in pending_payouts)
         
         for admin_user in admin_users:
             Notification.create_payout_notification(
