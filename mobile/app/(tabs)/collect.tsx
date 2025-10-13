@@ -9,9 +9,10 @@ import {
   TextInput,
   Modal,
   Alert,
-  ScrollView,
   ActivityIndicator,
   Dimensions,
+  TouchableWithoutFeedback,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -145,8 +146,9 @@ export default function CollectScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView>
-      {/* Header */}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={styles.content}>
+          {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Record Collection</Text>
         <Text style={styles.headerSubtitle}>
@@ -169,7 +171,9 @@ export default function CollectScreen() {
             placeholderTextColor={LogoColors.text.secondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            autoFocus
+            onBlur={Keyboard.dismiss}
+            returnKeyType="search"
+            onSubmitEditing={Keyboard.dismiss}
           />
           {(isSearching || loading) && <ActivityIndicator size="small" color={LogoColors.primary.red} />}
         </View>
@@ -182,6 +186,8 @@ export default function CollectScreen() {
               keyExtractor={item => item.id}
               renderItem={renderSearchResultItem}
               keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled={true}
+              scrollEnabled={true}
             />
           </View>
         )}
@@ -267,7 +273,8 @@ export default function CollectScreen() {
                 }}
               />
             </Modal>
-    </ScrollView>
+        </View>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -278,7 +285,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: LogoColors.background.primary,
-
+  },
+  content: {
+    flex: 1,
   },
   header: {
      padding: 20,
