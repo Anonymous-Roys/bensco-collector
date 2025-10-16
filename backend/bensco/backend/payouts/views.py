@@ -152,8 +152,16 @@ def get_client_balance(request, client_id):
     
     try:
         from clients.models import ClientModel
+        from django.db.models import Q
         
-        client = ClientModel.objects.get(id=client_id, collector=request.user)
+        # Allow access to assigned clients or shared clients (collector=None)
+        client = ClientModel.objects.filter(
+            Q(id=client_id) & (Q(collector=request.user) | Q(collector__isnull=True))
+        ).first()
+        
+        if not client:
+            return Response({'detail': 'Client not found or not accessible to you.'}, status=404)
+            
         available_balance = client.get_available_balance()
         
         # Get current cycle info
@@ -170,11 +178,17 @@ def get_client_balance(request, client_id):
                 cycle_data['days'] or 0
             )
             cycle_info = {
-                'total_collected': cycle_data['total'] or 0,
+                'id': str(current_cycle.id),
+                'status': current_cycle.status,
+                'total_collected': float(cycle_data['total'] or 0),
                 'contributing_days': cycle_data['days'] or 0,
-                'commission': commission,
+                'commission': float(commission),
                 'cycle_length': current_cycle.cycle_length,
-                'start_date': current_cycle.start_date,
+                'start_date': current_cycle.start_date.isoformat() if current_cycle.start_date else None,
+                'end_date': current_cycle.end_date.isoformat() if current_cycle.end_date else None,
+                'progress_percentage': min((cycle_data['days'] or 0) / current_cycle.cycle_length * 100, 100),
+                'business_days_passed': cycle_data['days'] or 0,
+                'can_close': (cycle_data['days'] or 0) >= current_cycle.cycle_length,
             }
         
         return Response({
@@ -186,8 +200,6 @@ def get_client_balance(request, client_id):
             'current_cycle': cycle_info
         })
         
-    except ClientModel.DoesNotExist:
-        return Response({'detail': 'Client not found or not assigned to you.'}, status=404)
     except Exception as e:
         return Response({'detail': f'Error getting client balance: {str(e)}'}, status=400)
 
@@ -205,10 +217,16 @@ def request_client_payout(request, client_id):
     try:
         from clients.models import ClientModel
         from contributions.models import ContributionModel
-        from django.db.models import Sum, Count
+        from django.db.models import Sum, Count, Q
         from decimal import Decimal
         
-        client = ClientModel.objects.get(id=client_id, collector=request.user)
+        # Allow access to assigned clients or shared clients (collector=None)
+        client = ClientModel.objects.filter(
+            Q(id=client_id) & (Q(collector=request.user) | Q(collector__isnull=True))
+        ).first()
+        
+        if not client:
+            return Response({'detail': 'Client not found or not accessible to you.'}, status=404)
         requested_amount_data = request.data.get('requested_amount')
         if not requested_amount_data:
             return Response({'detail': 'Requested amount is required.'}, status=400)
@@ -269,7 +287,5 @@ def request_client_payout(request, client_id):
         serializer = PayoutModelSerializer(payout)
         return Response(serializer.data, status=201)
         
-    except ClientModel.DoesNotExist:
-        return Response({'detail': 'Client not found or not assigned to you.'}, status=404)
     except Exception as e:
         return Response({'detail': f'Error creating payout request: {str(e)}'}, status=400)

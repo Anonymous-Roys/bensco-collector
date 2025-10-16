@@ -44,6 +44,10 @@ def create_client_view(request):
         # Admin must provide collector ID
         if 'collector' not in data:
             return Response({'detail': 'Collector ID is required.'}, status=400)
+        
+        # Handle 'all' collector assignment
+        if data['collector'] == 'all':
+            data['collector'] = None  # Set to None for shared clients
     else:
         return Response({'detail': 'Unauthorized role.'}, status=403)
 
@@ -61,14 +65,15 @@ def get_clients_view(request):
     status_filter = request.query_params.get('status')  # active/inactive
     amount_filter = request.query_params.get('amount')  # fixed/variable
 
-    # Admin sees all, Collector sees only their clients
+    # Admin sees all, Collector sees their clients + shared clients (collector=None)
     if request.user.role == 'admin':
         clients = ClientModel.objects.all()
         if collector_id:
             clients = clients.filter(collector__id=collector_id)
     elif request.user.role == 'collector':
-        clients = ClientModel.objects.filter(collector=request.user)
-        # clients = ClientModel.objects.all()
+        clients = ClientModel.objects.filter(
+            Q(collector=request.user) | Q(collector__isnull=True)
+        )
     else:
         return Response({'detail': 'Unauthorized role.'}, status=403)
 
@@ -100,18 +105,18 @@ def get_clients_view(request):
 def client_detail(request, client_id):
     client = get_object_or_404(ClientModel, id=client_id)
     
-    # Check permissions
-    if request.user.role == 'collector' and client.collector != request.user:
-        return Response({'detail': 'You can only access your own clients.'}, status=403)
+    # Check permissions - collectors can access their own clients or shared clients
+    if request.user.role == 'collector' and client.collector != request.user and client.collector is not None:
+        return Response({'detail': 'You can only access your own clients or shared clients.'}, status=403)
 
     if request.method == "GET":
         serializer = ClientModelSerializer(client)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ["PUT", "PATCH"]:
-        # Collectors can update their own clients, admins can update any client
-        if request.user.role == 'collector' and client.collector != request.user:
-            return Response({'detail': 'You can only update your own clients.'}, status=status.HTTP_403_FORBIDDEN)
+        # Collectors can update their own clients or shared clients, admins can update any client
+        if request.user.role == 'collector' and client.collector != request.user and client.collector is not None:
+            return Response({'detail': 'You can only update your own clients or shared clients.'}, status=status.HTTP_403_FORBIDDEN)
         elif request.user.role not in ['admin', 'collector']:
             return Response({'detail': 'Unauthorized role.'}, status=status.HTTP_403_FORBIDDEN)
         

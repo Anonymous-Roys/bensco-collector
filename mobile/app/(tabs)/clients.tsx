@@ -25,6 +25,263 @@ import { ClientInfoModal } from '@/components/ui/common/ClientInfoModal';
 import { CollectionModal } from '@/components/ui/common/CollectionModel';
 import { PayoutRequestModal } from '@/components/collector/PayoutRequestModal';
 
+// Create Client Modal Component
+const CreateClientModal = ({ visible, onClose, onSuccess }: {
+  visible: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    phone_number: '',
+    amount_daily: '',
+    is_fixed: true,
+    start_date: new Date().toISOString().split('T')[0],
+    dob: '',
+    next_of_kin: '',
+    initial_balance: '0',
+    address_label: '',
+    address_region: '',
+  });
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!formData.name.trim() || !formData.phone_number.trim() || !formData.amount_daily || !formData.start_date) {
+      Alert.alert('Error', 'Please fill in all required fields (Name, Phone, Daily Amount, Start Date)');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      let addressId = null;
+      
+      // Create address if label is provided
+      if (formData.address_label.trim()) {
+        const addressResponse = await fetch('https://bensco-collector.onrender.com/clients/addresses/create/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${await AsyncStorage.getItem('auth_token')}`,
+          },
+          body: JSON.stringify({
+            label: formData.address_label.trim(),
+            region: formData.address_region.trim() || null,
+          }),
+        });
+        
+        if (addressResponse.ok) {
+          const address = await addressResponse.json();
+          addressId = address.id;
+        }
+      }
+      
+      // Create client
+      const clientData = {
+        name: formData.name,
+        phone_number: formData.phone_number,
+        amount_daily: parseFloat(formData.amount_daily),
+        is_fixed: formData.is_fixed,
+        start_date: formData.start_date,
+        dob: formData.dob || null,
+        next_of_kin: formData.next_of_kin || null,
+        initial_balance: parseFloat(formData.initial_balance) || 0,
+        address: addressId,
+      };
+      
+      const response = await fetch('https://bensco-collector.onrender.com/clients/create/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await AsyncStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify(clientData),
+      });
+
+      if (response.ok) {
+        Alert.alert('Success', 'Client created successfully!');
+        setFormData({
+          name: '',
+          phone_number: '',
+          amount_daily: '',
+          is_fixed: true,
+          start_date: new Date().toISOString().split('T')[0],
+          dob: '',
+          next_of_kin: '',
+          initial_balance: '0',
+          address_label: '',
+          address_region: '',
+        });
+        onSuccess();
+      } else {
+        const error = await response.json();
+        Alert.alert('Error', error.detail || 'Failed to create client');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
+      <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Add New Client</Text>
+          <TouchableOpacity onPress={onClose}>
+            <MaterialCommunityIcons name="close" size={24} color={LogoColors.text.primary} />
+          </TouchableOpacity>
+        </View>
+        
+        <ScrollView style={styles.modalContent}>
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Full Name *</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.name}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
+              placeholder="Enter client's full name"
+              placeholderTextColor={LogoColors.text.secondary}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Phone Number *</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.phone_number}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, phone_number: text }))}
+              placeholder="+233 XX XXX XXXX"
+              placeholderTextColor={LogoColors.text.secondary}
+              keyboardType="phone-pad"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Daily Amount (₵) *</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.amount_daily}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, amount_daily: text }))}
+              placeholder="0.00"
+              placeholderTextColor={LogoColors.text.secondary}
+              keyboardType="decimal-pad"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Initial Balance (₵)</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.initial_balance}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, initial_balance: text }))}
+              placeholder="0.00"
+              placeholderTextColor={LogoColors.text.secondary}
+              keyboardType="decimal-pad"
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Start Date *</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.start_date}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, start_date: text }))}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={LogoColors.text.secondary}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Address Label</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.address_label}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, address_label: text }))}
+              placeholder="e.g., Kasoa New Market"
+              placeholderTextColor={LogoColors.text.secondary}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Region (Optional)</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.address_region}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, address_region: text }))}
+              placeholder="e.g., Central Region"
+              placeholderTextColor={LogoColors.text.secondary}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Date of Birth</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.dob}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, dob: text }))}
+              placeholder="YYYY-MM-DD"
+              placeholderTextColor={LogoColors.text.secondary}
+            />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Next of Kin</Text>
+            <TextInput
+              style={styles.input}
+              value={formData.next_of_kin}
+              onChangeText={(text) => setFormData(prev => ({ ...prev, next_of_kin: text }))}
+              placeholder="Next of kin name and contact"
+              placeholderTextColor={LogoColors.text.secondary}
+            />
+          </View>
+
+          <View style={styles.switchGroup}>
+            <Text style={styles.label}>Amount Type</Text>
+            <TouchableOpacity
+              style={styles.switchContainer}
+              onPress={() => setFormData(prev => ({ ...prev, is_fixed: !prev.is_fixed }))}
+            >
+              <Text style={styles.switchText}>
+                {formData.is_fixed ? 'Fixed Amount' : 'Variable Amount'}
+              </Text>
+              <MaterialCommunityIcons 
+                name={formData.is_fixed ? 'toggle-switch' : 'toggle-switch-off'} 
+                size={32} 
+                color={formData.is_fixed ? LogoColors.primary.red : LogoColors.text.secondary} 
+              />
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        <View style={styles.modalFooter}>
+          <TouchableOpacity 
+            style={[styles.button, styles.cancelButton]} 
+            onPress={onClose}
+            disabled={loading}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.button, styles.submitButton]} 
+            onPress={handleSubmit}
+            disabled={loading}
+          >
+            <Text style={styles.submitButtonText}>
+              {loading ? 'Creating...' : 'Create Client'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    </Modal>
+  );
+};
+
 export default function ClientsScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { clients, loading, error, totalCount } = useSelector((state: RootState) => state.clients);
@@ -39,6 +296,7 @@ export default function ClientsScreen() {
   const [collectAmount, setCollectAmount] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'amount' | 'date'>('name');
+  const [showCreateClientModal, setShowCreateClientModal] = useState(false);
 
   // Fetch clients on component mount
   useEffect(() => {
@@ -167,10 +425,20 @@ export default function ClientsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Clients</Text>
-        <Text style={styles.headerSubtitle}>
-          {totalCount} client{totalCount !== 1 ? 's' : ''}
-        </Text>
+        <View style={styles.headerContent}>
+          <View>
+            <Text style={styles.headerTitle}>My Clients</Text>
+            <Text style={styles.headerSubtitle}>
+              {totalCount} client{totalCount !== 1 ? 's' : ''}
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => setShowCreateClientModal(true)}
+          >
+            <MaterialCommunityIcons name="plus" size={24} color={LogoColors.text.onPrimary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Search Bar */}
@@ -285,6 +553,10 @@ export default function ClientsScreen() {
               setShowClientModal(false);
               setShowQuickCollectModal(true);
             }}
+            onRequestPayout={() => {
+              setShowClientModal(false);
+              handleRequestPayout(selectedClient);
+            }}
           />
         )}
       </Modal>
@@ -319,6 +591,16 @@ export default function ClientsScreen() {
         }}
         onSuccess={handlePayoutSuccess}
       />
+
+      {/* Create Client Modal */}
+      <CreateClientModal
+        visible={showCreateClientModal}
+        onClose={() => setShowCreateClientModal(false)}
+        onSuccess={() => {
+          setShowCreateClientModal(false);
+          dispatch(fetchClients());
+        }}
+      />
     </View>
   );
 }
@@ -332,6 +614,19 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 50,
     backgroundColor: LogoColors.background.primary,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  addButton: {
+    backgroundColor: LogoColors.primary.red,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     fontSize: 24,
@@ -472,5 +767,92 @@ const styles = StyleSheet.create({
     color: LogoColors.text.onPrimary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: LogoColors.background.primary,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: LogoColors.border.light,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: LogoColors.text.primary,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  formGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LogoColors.text.primary,
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: LogoColors.text.primary,
+    backgroundColor: LogoColors.background.secondary,
+  },
+  switchGroup: {
+    marginBottom: 20,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+    borderRadius: 8,
+    backgroundColor: LogoColors.background.secondary,
+  },
+  switchText: {
+    fontSize: 16,
+    color: LogoColors.text.primary,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: LogoColors.border.light,
+  },
+  button: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: LogoColors.background.secondary,
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+  },
+  submitButton: {
+    backgroundColor: LogoColors.primary.red,
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LogoColors.text.primary,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LogoColors.text.onPrimary,
   },
 });

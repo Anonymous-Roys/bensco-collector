@@ -8,9 +8,10 @@ interface ClientInfoModalProps {
   client: Client;
   onClose: () => void;
   onCollect: () => void;
+  onRequestPayout: () => void;
 }
 
-export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClose, onCollect }) => {
+export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClose, onCollect, onRequestPayout }) => {
   // For now, we'll show all clients as active since the backend doesn't provide status
   const status = 'active';
 
@@ -110,10 +111,13 @@ export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClos
               <Text style={styles.actionBtnText}>Collect</Text>
             </TouchableOpacity>
             
-            {/* <TouchableOpacity style={[styles.actionBtn, styles.secondaryActionBtn]}>
-              <MaterialCommunityIcons name="phone" size={20} color={LogoColors.primary.red} />
-              <Text style={[styles.actionBtnText, styles.secondaryActionBtnText]}>Call</Text>
-            </TouchableOpacity> */}
+            <TouchableOpacity 
+              style={[styles.actionBtn, styles.payoutActionBtn]}
+              onPress={onRequestPayout}
+            >
+              <MaterialCommunityIcons name="cash-minus" size={20} color={LogoColors.text.onPrimary} />
+              <Text style={styles.actionBtnText}>Request Payout</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
@@ -231,6 +235,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 16,
+    gap: 12,
   },
   actionBtn: {
     flexDirection: 'row',
@@ -241,7 +246,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     flex: 1,
-    marginRight: 8,
+  },
+  payoutActionBtn: {
+    backgroundColor: LogoColors.status.success,
   },
   actionBtnText: {
     color: LogoColors.text.onPrimary,

@@ -12,34 +12,66 @@ from .serializers import SavingsCycleSerializer
 def get_client_cycles(request, client_id):
     """Get all cycles for a specific client"""
     try:
+        from django.db.models import Sum
+        
         client = get_object_or_404(ClientModel, id=client_id)
         
         # Get current active cycle
-        current_cycle = client.get_current_cycle()
-        current_progress = current_cycle.get_cycle_progress() if current_cycle else None
+        current_cycle = client.savings_cycles.filter(status='active').first()
+        current_cycle_data = None
+        
+        if current_cycle:
+            # Get cycle contributions data
+            cycle_contributions = current_cycle.contributions.aggregate(
+                total=Sum('amount'),
+                days=Sum('days_covered')
+            )
+            
+            total_collected = float(cycle_contributions['total'] or 0)
+            contributing_days = cycle_contributions['days'] or 0
+            commission = float(client.calculate_commission(total_collected, contributing_days))
+            
+            current_cycle_data = {
+                'id': str(current_cycle.id),
+                'status': current_cycle.status,
+                'total_collected': total_collected,
+                'contributing_days': contributing_days,
+                'cycle_length': current_cycle.cycle_length,
+                'commission': commission,
+                'progress_percentage': min((contributing_days / current_cycle.cycle_length) * 100, 100),
+                'business_days_passed': contributing_days,
+                'can_close': contributing_days >= current_cycle.cycle_length,
+                'start_date': current_cycle.start_date.isoformat() if current_cycle.start_date else None,
+                'end_date': current_cycle.end_date.isoformat() if current_cycle.end_date else None,
+            }
         
         # Get cycle history
-        history = client.get_cycle_history()
-        total_history = client.get_total_savings_history()
+        history_cycles = client.savings_cycles.exclude(status='active').order_by('-end_date')[:10]
+        cycle_history = []
+        
+        for cycle in history_cycles:
+            cycle_contributions = cycle.contributions.aggregate(
+                total=Sum('amount'),
+                days=Sum('days_covered')
+            )
+            
+            total_collected = float(cycle_contributions['total'] or 0)
+            contributing_days = cycle_contributions['days'] or 0
+            commission = float(client.calculate_commission(total_collected, contributing_days))
+            
+            cycle_history.append({
+                'id': str(cycle.id),
+                'status': cycle.status,
+                'total_collected': total_collected,
+                'contributing_days': contributing_days,
+                'commission': commission,
+                'closed_on': cycle.end_date.isoformat() if cycle.end_date else None,
+                'start_date': cycle.start_date.isoformat() if cycle.start_date else None,
+            })
         
         return Response({
-            'client_id': client_id,
-            'client_name': client.name,
-            'current_cycle': {
-                'id': current_cycle.id if current_cycle else None,
-                'start_date': current_cycle.start_date if current_cycle else None,
-                'cycle_length': current_cycle.cycle_length if current_cycle else 31,
-                'status': current_cycle.status if current_cycle else None,
-                'progress': current_progress
-            },
-            'cycle_history': {
-                'total_cycles': total_history['total_cycles'],
-                'total_saved': str(total_history['total_saved']),
-                'recent_cycles': list(history[:5].values(
-                    'id', 'start_date', 'end_date', 'total_saved', 'status'
-                ))
-            },
-            'available_balance': str(client.get_available_balance())
+            'current_cycle': current_cycle_data,
+            'cycle_history': cycle_history,
         })
         
     except Exception as e:
