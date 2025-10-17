@@ -120,8 +120,13 @@ def client_detail(request, client_id):
         elif request.user.role not in ['admin', 'collector']:
             return Response({'detail': 'Unauthorized role.'}, status=status.HTTP_403_FORBIDDEN)
         
+        # Handle 'all' collector assignment for admins
+        data = request.data.copy()
+        if request.user.role == 'admin' and data.get('collector') == 'all':
+            data['collector'] = None  # Set to None for shared clients
+        
         # Use update serializer for updates (prevents start_date modification)
-        serializer = ClientUpdateSerializer(client, data=request.data, partial=request.method == "PATCH")
+        serializer = ClientUpdateSerializer(client, data=data, partial=request.method == "PATCH")
             
         if serializer.is_valid():
             try:

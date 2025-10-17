@@ -10,7 +10,10 @@ import {
   ScrollView,
   Alert,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -31,32 +34,59 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
   onClose: () => void;
   onSuccess: () => void;
 }) => {
+  
+  useEffect(() => {
+    if (visible) {
+      fetchAddresses();
+    }
+  }, [visible]);
+  
+  const fetchAddresses = async () => {
+    try {
+      const response = await fetch('https://bensco-collector.onrender.com/clients/addresses/', {
+        headers: {
+          'Authorization': `Bearer ${await AsyncStorage.getItem('auth_token')}`,
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAddresses(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch addresses:', error);
+    }
+  };
   const [formData, setFormData] = useState({
     name: '',
     phone_number: '',
     amount_daily: '',
     is_fixed: true,
-    start_date: new Date().toISOString().split('T')[0],
-    dob: '',
+    start_date: new Date(),
+    dob: new Date(),
     next_of_kin: '',
     initial_balance: '0',
-    address_label: '',
-    address_region: '',
+    address: '',
   });
   const [loading, setLoading] = useState(false);
+  const [addresses, setAddresses] = useState([]);
+  const [showCustomAddress, setShowCustomAddress] = useState(false);
+  const [customAddress, setCustomAddress] = useState('');
+  const [customRegion, setCustomRegion] = useState('');
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showDobPicker, setShowDobPicker] = useState(false);
 
   const handleSubmit = async () => {
-    if (!formData.name.trim() || !formData.phone_number.trim() || !formData.amount_daily || !formData.start_date) {
-      Alert.alert('Error', 'Please fill in all required fields (Name, Phone, Daily Amount, Start Date)');
+    if (!formData.name.trim() || !formData.phone_number.trim() || !formData.amount_daily) {
+      Alert.alert('Error', 'Please fill in all required fields (Name, Phone, Daily Amount)');
       return;
     }
 
     setLoading(true);
     try {
-      let addressId = null;
+      let addressId = formData.address;
       
-      // Create address if label is provided
-      if (formData.address_label.trim()) {
+      // Create address if custom address is provided
+      if (showCustomAddress && customAddress.trim()) {
         const addressResponse = await fetch('https://bensco-collector.onrender.com/clients/addresses/create/', {
           method: 'POST',
           headers: {
@@ -64,8 +94,8 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
             'Authorization': `Bearer ${await AsyncStorage.getItem('auth_token')}`,
           },
           body: JSON.stringify({
-            label: formData.address_label.trim(),
-            region: formData.address_region.trim() || null,
+            label: customAddress.trim(),
+            region: customRegion.trim() || null,
           }),
         });
         
@@ -81,11 +111,11 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
         phone_number: formData.phone_number,
         amount_daily: parseFloat(formData.amount_daily),
         is_fixed: formData.is_fixed,
-        start_date: formData.start_date,
-        dob: formData.dob || null,
+        start_date: formData.start_date.toISOString().split('T')[0],
+        dob: formData.dob ? formData.dob.toISOString().split('T')[0] : null,
         next_of_kin: formData.next_of_kin || null,
         initial_balance: parseFloat(formData.initial_balance) || 0,
-        address: addressId,
+        address: addressId === 'none' ? null : addressId,
       };
       
       const response = await fetch('https://bensco-collector.onrender.com/clients/create/', {
@@ -104,13 +134,15 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
           phone_number: '',
           amount_daily: '',
           is_fixed: true,
-          start_date: new Date().toISOString().split('T')[0],
-          dob: '',
+          start_date: new Date(),
+          dob: new Date(),
           next_of_kin: '',
           initial_balance: '0',
-          address_label: '',
-          address_region: '',
+          address: '',
         });
+        setShowCustomAddress(false);
+        setCustomAddress('');
+        setCustomRegion('');
         onSuccess();
       } else {
         const error = await response.json();
@@ -131,14 +163,18 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
       onRequestClose={onClose}
     >
       <SafeAreaView style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Add New Client</Text>
-          <TouchableOpacity onPress={onClose}>
-            <MaterialCommunityIcons name="close" size={24} color={LogoColors.text.primary} />
-          </TouchableOpacity>
-        </View>
-        
-        <ScrollView style={styles.modalContent}>
+        <KeyboardAvoidingView 
+          style={styles.keyboardAvoid}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Add New Client</Text>
+            <TouchableOpacity onPress={onClose}>
+              <MaterialCommunityIcons name="close" size={24} color={LogoColors.text.primary} />
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
           <View style={styles.formGroup}>
             <Text style={styles.label}>Full Name *</Text>
             <TextInput
@@ -188,46 +224,84 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Start Date *</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.start_date}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, start_date: text }))}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={LogoColors.text.secondary}
-            />
+            <TouchableOpacity 
+              style={styles.dateButton}
+              onPress={() => setShowStartDatePicker(true)}
+            >
+              <Text style={styles.dateButtonText}>
+                {formData.start_date.toLocaleDateString()}
+              </Text>
+              <MaterialCommunityIcons name="calendar" size={20} color={LogoColors.text.secondary} />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Address Label</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.address_label}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, address_label: text }))}
-              placeholder="e.g., Kasoa New Market"
-              placeholderTextColor={LogoColors.text.secondary}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Region (Optional)</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.address_region}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, address_region: text }))}
-              placeholder="e.g., Central Region"
-              placeholderTextColor={LogoColors.text.secondary}
-            />
+            <Text style={styles.label}>Address</Text>
+            {!showCustomAddress ? (
+              <View>
+                <TouchableOpacity 
+                  style={styles.dropdown}
+                  onPress={() => {
+                    // Show address picker
+                  }}
+                >
+                  <Text style={styles.dropdownText}>
+                    {formData.address ? 
+                      addresses.find(a => a.id === formData.address)?.label || 'Select address' : 
+                      'Select address'
+                    }
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-down" size={20} color={LogoColors.text.secondary} />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.addNewButton}
+                  onPress={() => setShowCustomAddress(true)}
+                >
+                  <MaterialCommunityIcons name="plus" size={16} color={LogoColors.primary.red} />
+                  <Text style={styles.addNewText}>Add new address</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.customAddressContainer}>
+                <TextInput
+                  style={styles.input}
+                  value={customAddress}
+                  onChangeText={setCustomAddress}
+                  placeholder="Address label (e.g., Kasoa New Market)"
+                  placeholderTextColor={LogoColors.text.secondary}
+                />
+                <TextInput
+                  style={[styles.input, { marginTop: 8 }]}
+                  value={customRegion}
+                  onChangeText={setCustomRegion}
+                  placeholder="Region (optional)"
+                  placeholderTextColor={LogoColors.text.secondary}
+                />
+                <TouchableOpacity 
+                  style={styles.cancelCustomButton}
+                  onPress={() => {
+                    setShowCustomAddress(false);
+                    setCustomAddress('');
+                    setCustomRegion('');
+                  }}
+                >
+                  <Text style={styles.cancelCustomText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Date of Birth</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.dob}
-              onChangeText={(text) => setFormData(prev => ({ ...prev, dob: text }))}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={LogoColors.text.secondary}
-            />
+            <TouchableOpacity 
+              style={styles.dateButton}
+              onPress={() => setShowDobPicker(true)}
+            >
+              <Text style={styles.dateButtonText}>
+                {formData.dob.toLocaleDateString()}
+              </Text>
+              <MaterialCommunityIcons name="calendar" size={20} color={LogoColors.text.secondary} />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.formGroup}>
@@ -276,7 +350,38 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
               {loading ? 'Creating...' : 'Create Client'}
             </Text>
           </TouchableOpacity>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
+        
+        {/* Date Pickers */}
+        {showStartDatePicker && (
+          <DateTimePicker
+            value={formData.start_date}
+            mode="date"
+            display="default"
+            onChange={(event, selectedDate) => {
+              setShowStartDatePicker(false);
+              if (selectedDate) {
+                setFormData(prev => ({ ...prev, start_date: selectedDate }));
+              }
+            }}
+          />
+        )}
+        
+        {showDobPicker && (
+          <DateTimePicker
+            value={formData.dob}
+            mode="date"
+            display="default"
+            maximumDate={new Date()}
+            onChange={(event, selectedDate) => {
+              setShowDobPicker(false);
+              if (selectedDate) {
+                setFormData(prev => ({ ...prev, dob: selectedDate }));
+              }
+            }}
+          />
+        )}
       </SafeAreaView>
     </Modal>
   );
@@ -772,6 +877,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: LogoColors.background.primary,
   },
+  keyboardAvoid: {
+    flex: 1,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -854,5 +962,61 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: LogoColors.text.onPrimary,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: LogoColors.background.secondary,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: LogoColors.text.primary,
+  },
+  dropdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: LogoColors.background.secondary,
+  },
+  dropdownText: {
+    fontSize: 16,
+    color: LogoColors.text.primary,
+  },
+  addNewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    padding: 8,
+  },
+  addNewText: {
+    fontSize: 14,
+    color: LogoColors.primary.red,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  customAddressContainer: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+    borderRadius: 8,
+    backgroundColor: LogoColors.background.secondary,
+  },
+  cancelCustomButton: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    padding: 8,
+  },
+  cancelCustomText: {
+    fontSize: 14,
+    color: LogoColors.text.secondary,
   },
 });
