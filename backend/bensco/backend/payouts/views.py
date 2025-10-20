@@ -5,7 +5,7 @@ from .serializers import PayoutModelSerializer
 from rest_framework.response import Response
 from .models import PayoutModel
 from django.utils import timezone
-from django.db.models import Count
+from django.db.models import Count, Sum, Q
 
 # Create your views here.
 @api_view(['POST'])
@@ -65,7 +65,8 @@ def approve_payout(request, payout_id):
     payout.approved_on = timezone.now().date()
     payout.save()
 
-    return Response({'message': 'Payout approved successfully'}, status=200)
+    serializer = PayoutModelSerializer(payout)
+    return Response(serializer.data, status=200)
 
 
 @api_view(['POST'])
@@ -92,7 +93,8 @@ def reject_payout(request, payout_id):
     payout.rejection_reason = reason
     payout.save()
 
-    return Response({'message': 'Payout rejected successfully'}, status=200)
+    serializer = PayoutModelSerializer(payout)
+    return Response(serializer.data, status=200)
 
 
 @api_view(['POST'])
@@ -114,8 +116,38 @@ def mark_payout_paid(request, payout_id):
     payout.paid_on = timezone.now().date()
     payout.save()
     
-    # The available balance calculation already accounts for paid payouts
-    # by subtracting them from each cycle's available amount
+    # If the payout exceeds the available amount in the cycle, deduct the
+    # excess from the client's initial_balance so the overall available
+    # balance decreases appropriately.
+    try:
+        from decimal import Decimal
+        # Calculate cycle available before this payout is considered paid
+        cycle = payout.cycle
+        client = payout.client
+
+        # total saved for the cycle
+        cycle_total = cycle.total_saved or Decimal('0')
+        # commission for the cycle
+        cycle_days = cycle.contributions.aggregate(days=Sum('days_covered'))['days'] or 0
+        commission = client.calculate_commission(cycle_total, cycle_days)
+
+        # sum of already paid payouts on this cycle (exclude this payout)
+        paid_out_on_cycle = cycle.payouts.filter(status=PayoutModel.StatusChoices.PAID).exclude(id=payout.id).aggregate(total=Sum('net_payout'))['total'] or Decimal('0')
+
+        cycle_available = max(Decimal(cycle_total) - Decimal(commission) - Decimal(paid_out_on_cycle), Decimal('0'))
+
+        excess = Decimal(payout.net_payout) - cycle_available
+        if excess > 0 and client and (client.initial_balance or Decimal('0')) > 0:
+            deduct = min(excess, Decimal(client.initial_balance))
+            client.initial_balance = Decimal(client.initial_balance) - deduct
+            client.save()
+
+        # Refresh payout.available_balance to reflect post-payment state
+        payout.available_balance = client.get_available_balance() if client else payout.available_balance
+        payout.save()
+    except Exception as e:
+        # Log and continue; payout already marked as paid
+        print(f"Error adjusting initial_balance after payout paid: {e}")
 
     return Response({'message': 'Payout marked as paid and deducted from client balance'}, status=200)
 
@@ -135,11 +167,23 @@ def get_payout_stats(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_collector_payouts(request):
-    """Get collector's own payout requests"""
+    """Get payouts for clients accessible to the collector (assigned or shared)"""
     if request.user.role != 'collector':
         return Response({'detail': 'Only collectors can view their payouts.'}, status=403)
-    
-    payouts = PayoutModel.objects.filter(requested_by=request.user).order_by('-requested_on')
+
+    # Collect payouts where:
+    # - the client is assigned to the requesting collector
+    # - OR the client is shared (collector is null)
+    # - OR the payout was requested by the collector themselves
+    payouts = PayoutModel.objects.filter(
+        Q(client__collector=request.user) | Q(client__collector__isnull=True) | Q(requested_by=request.user)
+    ).order_by('-requested_on')
+
+    # optional status filter
+    status_filter = request.query_params.get('status')
+    if status_filter:
+        payouts = payouts.filter(status=status_filter)
+
     serializer = PayoutModelSerializer(payouts, many=True)
     return Response(serializer.data, status=200)
 
