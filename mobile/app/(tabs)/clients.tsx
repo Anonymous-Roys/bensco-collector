@@ -76,8 +76,22 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
   const [showDobPicker, setShowDobPicker] = useState(false);
 
   const handleSubmit = async () => {
-    if (!formData.name.trim() || !formData.phone_number.trim() || !formData.amount_daily) {
-      Alert.alert('Error', 'Please fill in all required fields (Name, Phone, Daily Amount)');
+    // Validate required fields
+    const errors = [];
+    if (!formData.name.trim()) errors.push('Full name is required');
+    if (!formData.phone_number.trim()) errors.push('Phone number is required');
+    if (formData.is_fixed && (!formData.amount_daily || parseFloat(formData.amount_daily) <= 0)) {
+      errors.push('Valid daily amount is required for fixed clients');
+    }
+    
+    // Phone number validation (Ghana format)
+    const phoneRegex = /^(\+233|0)[235]\d{8}$/;
+    if (formData.phone_number && !phoneRegex.test(formData.phone_number.replace(/\s/g, ''))) {
+      errors.push('Please enter a valid Ghanaian phone number');
+    }
+    
+    if (errors.length > 0) {
+      Alert.alert('Validation Error', errors.join('\n'));
       return;
     }
 
@@ -109,7 +123,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
       const clientData = {
         name: formData.name,
         phone_number: formData.phone_number,
-        amount_daily: parseFloat(formData.amount_daily),
+        amount_daily: formData.amount_daily ? parseFloat(formData.amount_daily) : 0,
         is_fixed: formData.is_fixed,
         start_date: formData.start_date.toISOString().split('T')[0],
         dob: formData.dob ? formData.dob.toISOString().split('T')[0] : null,
@@ -199,12 +213,12 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Daily Amount (₵) *</Text>
+            <Text style={styles.label}>Daily Amount (₵) {formData.is_fixed ? '*' : '(Optional)'}</Text>
             <TextInput
               style={styles.input}
               value={formData.amount_daily}
               onChangeText={(text) => setFormData(prev => ({ ...prev, amount_daily: text }))}
-              placeholder="0.00"
+              placeholder={formData.is_fixed ? "0.00" : "Leave empty for variable amounts"}
               placeholderTextColor={LogoColors.text.secondary}
               keyboardType="decimal-pad"
             />

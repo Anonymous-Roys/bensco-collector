@@ -107,7 +107,8 @@
         "expo-navigation-bar",
         {
           "position": "absolute",
-          "visibility": "hidden"
+          "visibility": "leanback",
+          "behavior": "inset-swipe"
         }
       ]
     ],

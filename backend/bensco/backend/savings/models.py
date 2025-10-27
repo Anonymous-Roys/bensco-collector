@@ -112,6 +112,17 @@ class SavingsCycleModel(models.Model):
 
         return False
     
+    def force_close(self):
+        """Allow manual closure of active cycles"""
+        if self.status == self.Status.ACTIVE:
+            progress = self.get_cycle_progress()
+            self.status = self.Status.CLOSED
+            self.end_date = date.today()
+            self.total_saved = progress['total_contributions']
+            self.save()
+            return True
+        return False
+    
     def get_available_for_payout(self):
         """Calculate amount available for payout from this cycle"""
         if self.status != self.Status.CLOSED:

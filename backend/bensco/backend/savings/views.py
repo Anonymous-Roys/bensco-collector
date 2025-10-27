@@ -95,7 +95,7 @@ def close_cycle(request, client_id):
             )
         
         # Force close the cycle
-        current_cycle.check_and_close()
+        current_cycle.force_close()
         
         return Response({
             'message': 'Cycle closed successfully',
