@@ -14,7 +14,11 @@ from clients.models import ClientModel
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_contribution(request):
-    data = request.data
+    data = request.data.copy()
+    
+    # Always record the actual collector who performed the action
+    data['collector'] = request.user.id
+    
     serializer = ContributionModelSerializer(data=data)
 
     if serializer.is_valid():
@@ -27,6 +31,12 @@ def create_contribution(request):
 @permission_classes([IsAuthenticated])
 def create_bulk_contributions(request):
     data = request.data
+    
+    # Always record the actual collector for each contribution
+    if isinstance(data, list):
+        for item in data:
+            item['collector'] = request.user.id
+    
     serialized = ContributionModelSerializer(data=data, many=True)
     if not serialized.is_valid():
         return Response(data=serialized.error_messages,status=status.HTTP_400_BAD_REQUEST)

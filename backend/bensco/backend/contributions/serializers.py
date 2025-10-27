@@ -7,7 +7,10 @@ from datetime import timedelta
 from core.utils import check_and_close
 class ContributionModelSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.name', read_only=True)
-    collector_username = serializers.CharField(source='collector.username', read_only=True)
+    collector_username = serializers.SerializerMethodField()
+    
+    def get_collector_username(self, obj):
+        return obj.collector.username if obj.collector else 'Unknown'
 
     class Meta:
         model = ContributionModel
@@ -18,8 +21,8 @@ class ContributionModelSerializer(serializers.ModelSerializer):
             'collector',
             'collector_username',
             'amount',
+            'date',
             'days_covered',
-            # 'contribution_date',
             'savings_cycle',
             'is_override',
             'created_at'

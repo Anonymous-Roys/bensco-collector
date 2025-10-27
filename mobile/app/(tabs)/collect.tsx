@@ -24,10 +24,12 @@ import { RootState, AppDispatch } from '@/store';
 import { fetchClients } from '@/store/slices/clientSlice';
 // import { createContribution } from '@/store/slices/contributionSlice';
 import { confirmAndCreateContribution } from '@/services/collections';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function CollectScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { clients, loading, error } = useSelector((state: RootState) => state.clients);
+  const { user } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Client[]>([]);
@@ -92,7 +94,7 @@ export default function CollectScreen() {
     try {
       const contributionData = {
         client: selectedClient.id,
-        collector: selectedClient.collector,
+        collector: user?.id || '',
         savings_cycle: 'default-cycle',
         amount: amount.toString(),
         date: new Date().toISOString().split('T')[0],
