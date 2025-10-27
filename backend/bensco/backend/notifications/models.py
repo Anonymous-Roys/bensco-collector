@@ -54,10 +54,12 @@ class Notification(models.Model):
     @classmethod
     def create_collection_notification(cls, user, collector_name, amount, client_name):
         """Create notification for new collection"""
+        collector_display = collector_name or 'Unknown Collector'
+        client_display = client_name or 'Unknown Client'
         return cls.create_notification(
             user=user,
             title='New Collection Recorded',
-            message=f'{collector_name} recorded a collection of ₵{amount} from client {client_name}',
+            message=f'{collector_display} recorded a collection of ₵{amount} from client {client_display}',
             type='success',
             action_url='/admin/collections',
             action_text='View Collection'

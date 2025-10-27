@@ -9,6 +9,8 @@ from datetime import timedelta
 from .models import ContributionModel
 from .serializers import ContributionModelSerializer
 from clients.models import ClientModel
+from notifications.models import Notification
+from users.models import UserModel
 
 
 @api_view(['POST'])
@@ -23,6 +25,20 @@ def create_contribution(request):
 
     if serializer.is_valid():
         contribution = serializer.save()
+        
+        # Create notification for admins
+        admin_users = UserModel.objects.filter(role='admin')
+        collector_name = contribution.collector.username if contribution.collector else 'Unknown'
+        client_name = contribution.client.name if contribution.client else 'Unknown Client'
+        
+        for admin in admin_users:
+            Notification.create_collection_notification(
+                user=admin,
+                collector_name=collector_name,
+                amount=contribution.amount,
+                client_name=client_name
+            )
+        
         return Response(ContributionModelSerializer(contribution).data, status=status.HTTP_201_CREATED)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -156,9 +172,11 @@ def get_recent_activities(request):
     ).order_by('-created_at')[:5]
     
     for contrib in recent_contributions:
+        collector_name = contrib.collector.username if contrib.collector else 'Unknown'
+        client_name = contrib.client.name if contrib.client else 'Unknown Client'
         activities.append({
             'id': f'contrib-{contrib.id}',
-            'activity': f'₵{contrib.amount} collected from {contrib.client.name if hasattr(contrib, "client") else "client"}',
+            'activity': f'{collector_name} collected ₵{contrib.amount} from {client_name}',
             'time': contrib.created_at.strftime('%H:%M'),
             'type': 'collection',
             'date': contrib.date.isoformat()
