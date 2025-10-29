@@ -111,43 +111,15 @@ def mark_payout_paid(request, payout_id):
     if request.user.role != 'admin':
         return Response({'error': 'Only admins can mark payouts as paid'}, status=403)
 
-    # Mark as paid - the payout record itself tracks the deduction
+    # Mark as paid - the payout record tracks the deduction
     payout.status = PayoutModel.StatusChoices.PAID
     payout.paid_on = timezone.now().date()
     payout.save()
     
-    # If the payout exceeds the available amount in the cycle, deduct the
-    # excess from the client's initial_balance so the overall available
-    # balance decreases appropriately.
-    try:
-        from decimal import Decimal
-        # Calculate cycle available before this payout is considered paid
-        cycle = payout.cycle
-        client = payout.client
-
-        # total saved for the cycle
-        cycle_total = cycle.total_saved or Decimal('0')
-        # commission for the cycle
-        cycle_days = cycle.contributions.aggregate(days=Sum('days_covered'))['days'] or 0
-        commission = client.calculate_commission(cycle_total, cycle_days)
-
-        # sum of already paid payouts on this cycle (exclude this payout)
-        paid_out_on_cycle = cycle.payouts.filter(status=PayoutModel.StatusChoices.PAID).exclude(id=payout.id).aggregate(total=Sum('net_payout'))['total'] or Decimal('0')
-
-        cycle_available = max(Decimal(cycle_total) - Decimal(commission) - Decimal(paid_out_on_cycle), Decimal('0'))
-
-        excess = Decimal(payout.net_payout) - cycle_available
-        if excess > 0 and client and (client.initial_balance or Decimal('0')) > 0:
-            deduct = min(excess, Decimal(client.initial_balance))
-            client.initial_balance = Decimal(client.initial_balance) - deduct
-            client.save()
-
-        # Refresh payout.available_balance to reflect post-payment state
-        payout.available_balance = client.get_available_balance() if client else payout.available_balance
-        payout.save()
-    except Exception as e:
-        # Log and continue; payout already marked as paid
-        print(f"Error adjusting initial_balance after payout paid: {e}")
+    # Update available balance to reflect the payout
+    if payout.client:
+        payout.available_balance = payout.client.get_available_balance()
+        payout.save(update_fields=['available_balance'])
 
     return Response({'message': 'Payout marked as paid and deducted from client balance'}, status=200)
 
@@ -217,10 +189,8 @@ def get_client_balance(request, client_id):
                 total=Sum('amount'),
                 days=Sum('days_covered')
             )
-            commission = client.calculate_commission(
-                cycle_data['total'] or 0,
-                cycle_data['days'] or 0
-            )
+            # Commission will be calculated at payout time as requested_amount / 31
+            commission = 0  # Not calculated here anymore
             cycle_info = {
                 'id': str(current_cycle.id),
                 'status': current_cycle.status,
@@ -310,10 +280,14 @@ def request_client_payout(request, client_id):
             return Response({'detail': 'No collections found for this client.'}, status=400)
         
         # Calculate commission using new business logic
-        commission = client.calculate_commission(total_collected, contributing_days)
+        # Calculate commission using new business logic: requested_amount / 31
+        commission = requested_amount / Decimal('31')
         available_balance = client.get_available_balance()
         
 
+        
+        # Calculate net payout (requested amount - commission)
+        net_payout = requested_amount - commission
         
         # Create payout request
         payout = PayoutModel.objects.create(
@@ -324,7 +298,7 @@ def request_client_payout(request, client_id):
             available_balance=available_balance,
             total_paid=total_collected,
             commission=commission,
-            net_payout=min(requested_amount, available_balance),
+            net_payout=net_payout,
             requested_by=request.user
         )
         

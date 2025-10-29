@@ -81,11 +81,15 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
       return;
     }
 
-    // Show warning if amount > available balance (will be auto-rejected)
-    if (amount > clientBalance.available_balance) {
+    // Calculate commission and net payout
+    const commission = amount / 31;
+    const netPayout = amount - commission;
+    
+    // Show warning if net payout > available balance (will be auto-rejected)
+    if (netPayout > clientBalance.available_balance) {
       Alert.alert(
         'Invalid Request',
-        `Requested amount (₵${amount}) exceeds available balance (₵${clientBalance.available_balance.toFixed(2)}). This request will be automatically rejected.`,
+        `Net payout (₵${netPayout.toFixed(2)}) after commission (₵${commission.toFixed(2)}) exceeds available balance (₵${clientBalance.available_balance.toFixed(2)}). This request will be automatically rejected.`,
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Submit Anyway', onPress: () => submitRequest(amount) }
@@ -181,10 +185,31 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
                 <View style={[styles.infoCard, styles.balanceCard]}>
                   <Text style={styles.balanceAmount}>₵{clientBalance.available_balance.toFixed(2)}</Text>
                   <Text style={styles.balanceNote}>
-                    Amount available for payout after deducting commission
+                    Net amount available for payout (commission calculated at request time)
                   </Text>
                 </View>
               </View>
+
+              {/* Commission Preview */}
+              {requestedAmount && parseFloat(requestedAmount) > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Payout Breakdown</Text>
+                  <View style={styles.infoCard}>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Requested Amount:</Text>
+                      <Text style={styles.breakdownValue}>₵{parseFloat(requestedAmount).toFixed(2)}</Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Commission (÷ 31):</Text>
+                      <Text style={styles.breakdownValue}>-₵{(parseFloat(requestedAmount) / 31).toFixed(2)}</Text>
+                    </View>
+                    <View style={[styles.breakdownRow, styles.breakdownTotal]}>
+                      <Text style={styles.breakdownTotalLabel}>Net Payout:</Text>
+                      <Text style={styles.breakdownTotalValue}>₵{(parseFloat(requestedAmount) - (parseFloat(requestedAmount) / 31)).toFixed(2)}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               {/* Withdrawal Amount Input */}
               <View style={styles.section}>
@@ -201,14 +226,21 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
                   />
                   <TouchableOpacity 
                     style={styles.maxButton}
-                    onPress={() => setRequestedAmount(clientBalance.available_balance.toFixed(2))}
+                    onPress={() => {
+                      // Calculate max requestable amount: available_balance + commission
+                      // Since commission = requested_amount / 31, we solve: available_balance = requested_amount - (requested_amount / 31)
+                      // available_balance = requested_amount * (30/31)
+                      // requested_amount = available_balance * (31/30)
+                      const maxRequestable = clientBalance.available_balance * (31 / 30);
+                      setRequestedAmount(maxRequestable.toFixed(2));
+                    }}
                     disabled={submitting}
                   >
                     <Text style={styles.maxButtonText}>MAX</Text>
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.inputNote}>
-                  Available balance: ₵{clientBalance.available_balance.toFixed(2)}. Amounts exceeding this will be auto-rejected.
+                  Available balance: ₵{clientBalance.available_balance.toFixed(2)}. Commission is deducted as requested amount ÷ 31. Net payout cannot exceed available balance.
                 </Text>
               </View>
 
@@ -402,5 +434,36 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    color: Colors.light.text.secondary,
+  },
+  breakdownValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: Colors.light.text.primary,
+  },
+  breakdownTotal: {
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border.light,
+    marginTop: 8,
+    paddingTop: 8,
+  },
+  breakdownTotalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.light.text.primary,
+  },
+  breakdownTotalValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.light.status.success,
   },
 });

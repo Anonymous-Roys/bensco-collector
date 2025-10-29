@@ -34,13 +34,15 @@ class ClientModel(models.Model):
         """Calculate commission based on client type"""
         from decimal import Decimal
         
+        total_collected = Decimal(str(total_collected or 0))
+        
         if self.is_fixed:
             # Fixed clients: flat commission = daily amount (once per cycle)
             return Decimal(str(self.amount_daily or 0))
         else:
             # Variable clients: total / days contributed
             if contributing_days and contributing_days > 0:
-                return Decimal(str(total_collected)) / Decimal(str(contributing_days))
+                return total_collected / Decimal(str(contributing_days))
             return Decimal('0')
     
     def get_current_cycle(self):
@@ -102,8 +104,8 @@ class ClientModel(models.Model):
                 ).aggregate(total=Sum('net_payout'))['total'] or 0
                 
                 # Available from this cycle = net amount - payouts made
-                cycle_available = cycle_net - paid_out
-                total_net_balance += max(cycle_available, Decimal('0'))
+                cycle_available = max(cycle_net - paid_out, Decimal('0'))
+                total_net_balance += cycle_available
             
             # Add initial balance
             total_net_balance += (self.initial_balance or Decimal('0'))
