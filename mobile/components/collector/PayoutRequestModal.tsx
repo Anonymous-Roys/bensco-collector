@@ -15,7 +15,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { Colors } from '@/constants/Colors';
-import { Client, ClientBalance } from '@/constants/types';
+import { Client } from '@/constants/types';
 import { RootState, AppDispatch } from '@/store';
 import { fetchClientBalance, requestClientPayout, clearError } from '@/store/slices/payoutSlice';
 import { ClientCycleCard } from './ClientCycleCard';
