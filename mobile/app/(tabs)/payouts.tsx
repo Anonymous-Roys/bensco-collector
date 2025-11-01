@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
-import { Colors } from '@/constants/Colors';
+import { LogoColors } from '@/constants/Colors';
 import { RootState, AppDispatch } from '@/store';
 import { fetchPayouts } from '@/store/slices/payoutSlice';
 import { PayoutRequest } from '@/constants/types';
@@ -20,6 +22,9 @@ const PayoutsScreen = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { payouts, loading, error } = useSelector((state: RootState) => state.payouts);
   const [refreshing, setRefreshing] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedClient, setSelectedClient] = useState<string>('all');
 
   useEffect(() => {
     loadPayouts();
@@ -30,6 +35,8 @@ const PayoutsScreen = () => {
       await dispatch(fetchPayouts()).unwrap();
     } catch (error) {
       console.error('Failed to load payouts:', error);
+      // Don't show alert for now, just log the error
+      // The empty state will be shown instead
     }
   };
 
@@ -52,16 +59,16 @@ const PayoutsScreen = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return Colors.light.status.warning;
-      case 'approved': return Colors.light.status.success;
-      case 'paid': return Colors.light.primary.blue;
-      case 'rejected': return Colors.light.status.error;
-      case 'auto_rejected': return Colors.light.status.error;
-      default: return Colors.light.text.secondary;
+      case 'pending': return LogoColors.status.warning;
+      case 'approved': return LogoColors.status.success;
+      case 'paid': return LogoColors.primary.blue;
+      case 'rejected': return LogoColors.status.error;
+      case 'auto_rejected': return LogoColors.status.error;
+      default: return LogoColors.text.secondary;
     }
   };
 
-  const formatAmount = (amount: number) => `₵${amount.toFixed(2)}`;
+  const formatAmount = (amount: number | undefined | null) => `₵${Number(amount || 0).toFixed(2)}`;
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -73,17 +80,119 @@ const PayoutsScreen = () => {
   const calculateCommission = (amount: number) => amount / 31;
   const calculateNetAmount = (amount: number) => amount - calculateCommission(amount);
 
-  const getSummaryStats = () => {
-    const totalRequested = payouts.reduce((sum, p) => sum + (p.requested_amount || 0), 0);
-    const totalCommission = payouts.reduce((sum, p) => sum + calculateCommission(p.requested_amount || 0), 0);
-    const totalNet = payouts.reduce((sum, p) => sum + calculateNetAmount(p.requested_amount || 0), 0);
-    const pendingCount = payouts.filter(p => p.status === 'pending').length;
-    const paidCount = payouts.filter(p => p.status === 'paid').length;
+  const getFilteredPayouts = () => {
+    return payouts.filter(payout => {
+      const statusMatch = selectedStatus === 'all' || payout.status === selectedStatus;
+      const clientMatch = selectedClient === 'all' || payout.client_name === selectedClient;
+      return statusMatch && clientMatch;
+    });
+  };
 
-    return { totalRequested, totalCommission, totalNet, pendingCount, paidCount };
+  const getUniqueClients = () => {
+    return [...new Set(payouts.map(p => p.client_name))].sort();
+  };
+
+  const getSummaryStats = () => {
+    const filtered = getFilteredPayouts();
+    const totalRequested = filtered.reduce((sum, p) => sum + (p.requested_amount || 0), 0);
+    const pendingCount = filtered.filter(p => p.status === 'pending').length;
+    const paidCount = filtered.filter(p => p.status === 'paid').length;
+    const approvedCount = filtered.filter(p => p.status === 'approved').length;
+    const rejectedCount = filtered.filter(p => p.status === 'rejected' || p.status === 'auto_rejected').length;
+
+    return { totalRequested, pendingCount, paidCount, approvedCount, rejectedCount };
   };
 
   const stats = getSummaryStats();
+  const filteredPayouts = getFilteredPayouts();
+  const uniqueClients = getUniqueClients();
+
+  const renderFilterModal = () => (
+    <Modal
+      visible={filterModalVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setFilterModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Filter Payouts</Text>
+            <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
+              <MaterialCommunityIcons name="close" size={24} color={LogoColors.text.primary} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Status</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {['all', 'pending', 'approved', 'paid', 'rejected', 'auto_rejected'].map(status => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.filterChip,
+                    selectedStatus === status && styles.filterChipActive
+                  ]}
+                  onPress={() => setSelectedStatus(status)}
+                >
+                  <Text style={[
+                    styles.filterChipText,
+                    selectedStatus === status && styles.filterChipTextActive
+                  ]}>
+                    {status === 'all' ? 'All' : status.replace('_', ' ').toUpperCase()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <View style={styles.filterSection}>
+            <Text style={styles.filterLabel}>Client</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  selectedClient === 'all' && styles.filterChipActive
+                ]}
+                onPress={() => setSelectedClient('all')}
+              >
+                <Text style={[
+                  styles.filterChipText,
+                  selectedClient === 'all' && styles.filterChipTextActive
+                ]}>
+                  All Clients
+                </Text>
+              </TouchableOpacity>
+              {uniqueClients.map(client => (
+                <TouchableOpacity
+                  key={client}
+                  style={[
+                    styles.filterChip,
+                    selectedClient === client && styles.filterChipActive
+                  ]}
+                  onPress={() => setSelectedClient(client)}
+                >
+                  <Text style={[
+                    styles.filterChipText,
+                    selectedClient === client && styles.filterChipTextActive
+                  ]}>
+                    {client}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          <TouchableOpacity
+            style={styles.applyButton}
+            onPress={() => setFilterModalVisible(false)}
+          >
+            <Text style={styles.applyButtonText}>Apply Filters</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   const renderPayoutCard = (payout: PayoutRequest) => (
     <View key={payout.id} style={styles.payoutCard}>
@@ -112,8 +221,8 @@ const PayoutsScreen = () => {
           <Text style={styles.amountValue}>{formatAmount(payout.requested_amount || 0)}</Text>
         </View>
         <View style={styles.amountRow}>
-          <Text style={[styles.amountLabel, { color: Colors.light.status.error }]}>Commission (÷31):</Text>
-          <Text style={[styles.amountValue, { color: Colors.light.status.error }]}>
+          <Text style={[styles.amountLabel, { color: LogoColors.status.error }]}>Commission (÷31):</Text>
+          <Text style={[styles.amountValue, { color: LogoColors.status.error }]}>
             -{formatAmount(calculateCommission(payout.requested_amount || 0))}
           </Text>
         </View>
@@ -127,14 +236,14 @@ const PayoutsScreen = () => {
 
       {payout.rejection_reason && (
         <View style={styles.rejectionReason}>
-          <MaterialCommunityIcons name="alert-circle" size={16} color={Colors.light.status.error} />
+          <MaterialCommunityIcons name="alert-circle" size={16} color={LogoColors.status.error} />
           <Text style={styles.rejectionText}>{payout.rejection_reason}</Text>
         </View>
       )}
 
       {payout.status === 'paid' && payout.paid_on && (
         <View style={styles.paidInfo}>
-          <MaterialCommunityIcons name="check-circle" size={16} color={Colors.light.status.success} />
+          <MaterialCommunityIcons name="check-circle" size={16} color={LogoColors.status.success} />
           <Text style={styles.paidText}>Paid on {formatDate(payout.paid_on)}</Text>
         </View>
       )}
@@ -144,24 +253,33 @@ const PayoutsScreen = () => {
   if (loading && payouts.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={Colors.light.primary.red} />
+        <ActivityIndicator size="large" color={LogoColors.primary.red} />
         <Text style={styles.loadingText}>Loading payout history...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Payout History</Text>
-        <TouchableOpacity onPress={onRefresh} disabled={refreshing}>
-          <MaterialCommunityIcons 
-            name="refresh" 
-            size={24} 
-            color={refreshing ? Colors.light.text.secondary : Colors.light.primary.red} 
-          />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={styles.filterButton}
+            onPress={() => setFilterModalVisible(true)}
+          >
+            <MaterialCommunityIcons name="filter" size={20} color={LogoColors.primary.red} />
+            <Text style={styles.filterButtonText}>Filter</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onRefresh} disabled={refreshing}>
+            <MaterialCommunityIcons 
+              name="refresh" 
+              size={24} 
+              color={refreshing ? LogoColors.text.secondary : LogoColors.primary.red} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Summary Cards */}
@@ -171,34 +289,40 @@ const PayoutsScreen = () => {
         style={styles.summaryContainer}
         contentContainerStyle={styles.summaryContent}
       >
-        <View style={[styles.summaryCard, { backgroundColor: Colors.light.primary.blue + '10' }]}>
-          <MaterialCommunityIcons name="cash-multiple" size={24} color={Colors.light.primary.blue} />
+        <View style={[styles.summaryCard, { backgroundColor: LogoColors.primary.blue + '10' }]}>
+          <MaterialCommunityIcons name="cash-multiple" size={24} color={LogoColors.primary.blue} />
           <Text style={styles.summaryValue}>{formatAmount(stats.totalRequested)}</Text>
           <Text style={styles.summaryLabel}>Total Requested</Text>
         </View>
 
-        <View style={[styles.summaryCard, { backgroundColor: Colors.light.status.error + '10' }]}>
-          <MaterialCommunityIcons name="percent" size={24} color={Colors.light.status.error} />
-          <Text style={styles.summaryValue}>{formatAmount(stats.totalCommission)}</Text>
-          <Text style={styles.summaryLabel}>Total Commission</Text>
-        </View>
-
-        <View style={[styles.summaryCard, { backgroundColor: Colors.light.status.success + '10' }]}>
-          <MaterialCommunityIcons name="wallet" size={24} color={Colors.light.status.success} />
-          <Text style={styles.summaryValue}>{formatAmount(stats.totalNet)}</Text>
-          <Text style={styles.summaryLabel}>Net Received</Text>
-        </View>
-
-        <View style={[styles.summaryCard, { backgroundColor: Colors.light.status.warning + '10' }]}>
-          <MaterialCommunityIcons name="clock-outline" size={24} color={Colors.light.status.warning} />
+        <View style={[styles.summaryCard, { backgroundColor: LogoColors.status.warning + '10' }]}>
+          <MaterialCommunityIcons name="clock-outline" size={24} color={LogoColors.status.warning} />
           <Text style={styles.summaryValue}>{stats.pendingCount}</Text>
           <Text style={styles.summaryLabel}>Pending</Text>
+        </View>
+
+        <View style={[styles.summaryCard, { backgroundColor: LogoColors.status.success + '10' }]}>
+          <MaterialCommunityIcons name="check-circle" size={24} color={LogoColors.status.success} />
+          <Text style={styles.summaryValue}>{stats.approvedCount}</Text>
+          <Text style={styles.summaryLabel}>Approved</Text>
+        </View>
+
+        <View style={[styles.summaryCard, { backgroundColor: LogoColors.primary.red + '10' }]}>
+          <MaterialCommunityIcons name="cash-check" size={24} color={LogoColors.primary.red} />
+          <Text style={styles.summaryValue}>{stats.paidCount}</Text>
+          <Text style={styles.summaryLabel}>Paid</Text>
+        </View>
+
+        <View style={[styles.summaryCard, { backgroundColor: LogoColors.status.error + '10' }]}>
+          <MaterialCommunityIcons name="close-circle" size={24} color={LogoColors.status.error} />
+          <Text style={styles.summaryValue}>{stats.rejectedCount}</Text>
+          <Text style={styles.summaryLabel}>Rejected</Text>
         </View>
       </ScrollView>
 
       {/* Commission Info */}
       <View style={styles.commissionInfo}>
-        <MaterialCommunityIcons name="information" size={20} color={Colors.light.primary.blue} />
+        <MaterialCommunityIcons name="information" size={20} color={LogoColors.primary.blue} />
         <Text style={styles.commissionText}>
           Commission: 3.23% (1/31) deducted from all payout requests
         </Text>
@@ -212,42 +336,48 @@ const PayoutsScreen = () => {
         }
         showsVerticalScrollIndicator={false}
       >
-        {payouts.length === 0 ? (
+        {filteredPayouts.length === 0 ? (
           <View style={styles.emptyState}>
-            <MaterialCommunityIcons name="cash-off" size={64} color={Colors.light.text.light} />
-            <Text style={styles.emptyTitle}>No Payout Requests</Text>
+            <MaterialCommunityIcons name="cash-off" size={64} color={LogoColors.text.light} />
+            <Text style={styles.emptyTitle}>
+              {payouts.length === 0 ? 'No Payout Requests' : 'No Matching Payouts'}
+            </Text>
             <Text style={styles.emptySubtitle}>
-              Your payout requests will appear here once you submit them
+              {payouts.length === 0 
+                ? 'Your payout requests will appear here once you submit them'
+                : 'Try adjusting your filters to see more results'
+              }
             </Text>
           </View>
         ) : (
-          payouts
+          [...filteredPayouts]
             .sort((a, b) => new Date(b.requested_on).getTime() - new Date(a.requested_on).getTime())
             .map(renderPayoutCard)
         )}
       </ScrollView>
-    </View>
+      {renderFilterModal()}
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.background.primary,
+    backgroundColor: LogoColors.background.primary,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: Colors.light.background.surface,
+    padding: 20,
+    paddingTop: 0,
+    backgroundColor: LogoColors.background.primary,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: Colors.light.text.primary,
+    color: LogoColors.text.primary,
+    marginBottom: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -257,7 +387,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: Colors.light.text.secondary,
+    color: LogoColors.text.secondary,
   },
   summaryContainer: {
     maxHeight: 120,
@@ -276,19 +406,19 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: Colors.light.text.primary,
+    color: LogoColors.text.primary,
     marginTop: 8,
   },
   summaryLabel: {
     fontSize: 12,
-    color: Colors.light.text.secondary,
+    color: LogoColors.text.secondary,
     marginTop: 4,
     textAlign: 'center',
   },
   commissionInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.primary.blue + '10',
+    backgroundColor: LogoColors.primary.blue + '10',
     marginHorizontal: 20,
     padding: 12,
     borderRadius: 8,
@@ -296,7 +426,7 @@ const styles = StyleSheet.create({
   },
   commissionText: {
     fontSize: 12,
-    color: Colors.light.primary.blue,
+    color: LogoColors.primary.blue,
     marginLeft: 8,
     flex: 1,
   },
@@ -305,12 +435,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   payoutCard: {
-    backgroundColor: Colors.light.background.surface,
+    backgroundColor: LogoColors.background.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: Colors.light.border.light,
+    borderColor: LogoColors.border.light,
   },
   payoutHeader: {
     flexDirection: 'row',
@@ -324,12 +454,12 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.text.primary,
+    color: LogoColors.text.primary,
     marginBottom: 4,
   },
   requestDate: {
     fontSize: 12,
-    color: Colors.light.text.secondary,
+    color: LogoColors.text.secondary,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -345,7 +475,7 @@ const styles = StyleSheet.create({
   },
   amountBreakdown: {
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border.light,
+    borderTopColor: LogoColors.border.light,
     paddingTop: 12,
   },
   amountRow: {
@@ -356,54 +486,54 @@ const styles = StyleSheet.create({
   },
   amountLabel: {
     fontSize: 14,
-    color: Colors.light.text.secondary,
+    color: LogoColors.text.secondary,
   },
   amountValue: {
     fontSize: 14,
     fontWeight: '500',
-    color: Colors.light.text.primary,
+    color: LogoColors.text.primary,
   },
   netAmountRow: {
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border.light,
+    borderTopColor: LogoColors.border.light,
     paddingTop: 8,
     marginTop: 4,
   },
   netAmountLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.text.primary,
+    color: LogoColors.text.primary,
   },
   netAmountValue: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: Colors.light.status.success,
+    color: LogoColors.status.success,
   },
   rejectionReason: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.status.error + '10',
+    backgroundColor: LogoColors.status.error + '10',
     padding: 8,
     borderRadius: 6,
     marginTop: 8,
   },
   rejectionText: {
     fontSize: 12,
-    color: Colors.light.status.error,
+    color: LogoColors.status.error,
     marginLeft: 8,
     flex: 1,
   },
   paidInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.status.success + '10',
+    backgroundColor: LogoColors.status.success + '10',
     padding: 8,
     borderRadius: 6,
     marginTop: 8,
   },
   paidText: {
     fontSize: 12,
-    color: Colors.light.status.success,
+    color: LogoColors.status.success,
     marginLeft: 8,
     fontWeight: '500',
   },
@@ -414,15 +544,102 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.light.text.primary,
+    color: LogoColors.text.primary,
     marginTop: 16,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: Colors.light.text.secondary,
+    color: LogoColors.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: LogoColors.primary.red + '10',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  filterButtonText: {
+    fontSize: 12,
+    color: LogoColors.primary.red,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: LogoColors.background.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: LogoColors.border.light,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: LogoColors.text.primary,
+  },
+  filterSection: {
+    marginVertical: 16,
+  },
+  filterLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LogoColors.text.primary,
+    marginBottom: 12,
+  },
+  filterChip: {
+    backgroundColor: LogoColors.background.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+  },
+  filterChipActive: {
+    backgroundColor: LogoColors.primary.red,
+    borderColor: LogoColors.primary.red,
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: LogoColors.text.secondary,
+    fontWeight: '500',
+  },
+  filterChipTextActive: {
+    color: LogoColors.background.surface,
+  },
+  applyButton: {
+    backgroundColor: LogoColors.primary.red,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  applyButtonText: {
+    color: LogoColors.background.surface,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

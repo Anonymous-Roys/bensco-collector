@@ -81,28 +81,7 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
       return;
     }
 
-    // Validate fixed client amounts
-    if (clientBalance.is_fixed) {
-      const dailyAmount = parseFloat(clientBalance.daily_amount);
-      if (amount % dailyAmount !== 0) {
-        const remainder = amount % dailyAmount;
-        Alert.alert(
-          'Invalid Amount for Fixed Client',
-          `Amount ₵${amount.toFixed(2)} is not divisible by daily amount ₵${dailyAmount.toFixed(2)}. Excess: ₵${remainder.toFixed(2)}. Fixed clients must pay exact multiples of their daily amount.`,
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-      
-      if (amount < dailyAmount) {
-        Alert.alert(
-          'Amount Too Low',
-          `Amount ₵${amount.toFixed(2)} is less than required daily amount of ₵${dailyAmount.toFixed(2)}.`,
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-    }
+
 
     // Calculate commission and net payout
     const commission = amount / 31;
@@ -230,27 +209,7 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
                       <Text style={styles.breakdownTotalLabel}>Net Payout:</Text>
                       <Text style={styles.breakdownTotalValue}>₵{(parseFloat(requestedAmount) - (parseFloat(requestedAmount) / 31)).toFixed(2)}</Text>
                     </View>
-                    
-                    {/* Fixed client validation info */}
-                    {clientBalance?.is_fixed && (
-                      <View style={styles.validationInfo}>
-                        {parseFloat(requestedAmount) % parseFloat(clientBalance.daily_amount) === 0 ? (
-                          <View style={styles.validationRow}>
-                            <MaterialCommunityIcons name="check-circle" size={16} color={Colors.light.status.success} />
-                            <Text style={styles.validationTextSuccess}>
-                              Valid: Covers {Math.floor(parseFloat(requestedAmount) / parseFloat(clientBalance.daily_amount))} days
-                            </Text>
-                          </View>
-                        ) : (
-                          <View style={styles.validationRow}>
-                            <MaterialCommunityIcons name="alert-circle" size={16} color={Colors.light.status.error} />
-                            <Text style={styles.validationTextError}>
-                              Invalid: Must be multiple of ₵{clientBalance.daily_amount}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
+
                   </View>
                 </View>
               )}
@@ -510,26 +469,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: Colors.light.status.success,
   },
-  validationInfo: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: Colors.light.border.light,
-  },
-  validationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  validationTextSuccess: {
-    fontSize: 12,
-    color: Colors.light.status.success,
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  validationTextError: {
-    fontSize: 12,
-    color: Colors.light.status.error,
-    marginLeft: 8,
-    fontWeight: '500',
-  },
+
 });

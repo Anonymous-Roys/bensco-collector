@@ -326,14 +326,20 @@ export const payoutsAPI = {
   },
   listPayouts: async (): Promise<any> => {
     try {
-      const response = await api.get(API_CONFIG.PAYOUTS.LIST);
+      const response = await api.get(API_CONFIG.PAYOUTS.COLLECTOR_LIST);
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error)) {
-        const apiError: ApiError = error.response?.data || { detail: 'Failed to list payouts' };
-        throw new Error(apiError.detail);
+      // If collector endpoint fails, try the general list endpoint
+      try {
+        const fallbackResponse = await api.get(API_CONFIG.PAYOUTS.LIST);
+        return fallbackResponse.data;
+      } catch (fallbackError) {
+        if (axios.isAxiosError(error)) {
+          const apiError: ApiError = error.response?.data || { detail: 'Failed to list payouts' };
+          throw new Error(apiError.detail);
+        }
+        throw error;
       }
-      throw error;
     }
   },
   approvePayout: async (id: string): Promise<any> => {

@@ -10,7 +10,9 @@ export const fetchPayouts = createAsyncThunk(
       const response = await payoutsAPI.listPayouts();
       return Array.isArray(response) ? response : response.results || [];
     } catch (error) {
-      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch payouts');
+      // Return empty array instead of rejecting to prevent crashes
+      console.warn('Payouts API failed, returning empty array:', error);
+      return [];
     }
   }
 );
@@ -89,6 +91,10 @@ const payoutSlice = createSlice({
       .addCase(fetchPayouts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+        // Keep payouts as empty array instead of undefined
+        if (!state.payouts) {
+          state.payouts = [];
+        }
       })
       // Request client payout
       .addCase(requestClientPayout.pending, (state) => {

@@ -33,6 +33,7 @@ export const API_CONFIG = {
     REQUEST_CLIENT: '/pay/request-client/:client_id/',
     APPROVE: '/pay/approve/:id/',
     LIST: '/pay/list/',
+    COLLECTOR_LIST: '/pay/collector-payouts/',
     REJECT: '/pay/reject/:id/',
     MARK_PAID: '/pay/mark-paid/:id/',
     CLIENT_BALANCE: '/pay/client-balance/:client_id/',

@@ -74,12 +74,43 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
         return 0;
     };
 
+    const isFixedClient = () => {
+        if (typeof client === 'object' && client !== null && 'is_fixed' in client) {
+            return client.is_fixed;
+        }
+        return false;
+    };
+
     const dailyAmount = getDailyAmount();
+    const fixedClient = isFixedClient();
 
     const handleCollectWithConfirmation = () => {
         if (!amount || parseFloat(amount) <= 0) {
             Alert.alert('Invalid Amount', 'Please enter a valid amount');
             return;
+        }
+
+        // Validate fixed client amounts
+        if (fixedClient && dailyAmount > 0) {
+            const collectedAmount = parseFloat(amount);
+            if (collectedAmount % dailyAmount !== 0) {
+                const remainder = collectedAmount % dailyAmount;
+                Alert.alert(
+                    'Invalid Amount for Fixed Client',
+                    `Amount GHS ${collectedAmount.toFixed(2)} is not divisible by daily amount GHS ${dailyAmount.toFixed(2)}. Excess: GHS ${remainder.toFixed(2)}.\n\nFixed clients must pay exact multiples of their daily amount for spreading to work properly.`,
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
+            
+            if (collectedAmount < dailyAmount) {
+                Alert.alert(
+                    'Amount Too Low',
+                    `Amount GHS ${collectedAmount.toFixed(2)} is less than required daily amount of GHS ${dailyAmount.toFixed(2)}.`,
+                    [{ text: 'OK' }]
+                );
+                return;
+            }
         }
 
         Alert.alert(
@@ -139,6 +170,19 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
                             returnKeyType="done"
                             onSubmitEditing={Keyboard.dismiss}
                         />
+                        {fixedClient && dailyAmount > 0 && amount && (
+                            <View style={styles.validationInfo}>
+                                {parseFloat(amount) % dailyAmount === 0 && parseFloat(amount) >= dailyAmount ? (
+                                    <Text style={styles.validationSuccess}>
+                                        ✓ Valid: Covers {Math.floor(parseFloat(amount) / dailyAmount)} days
+                                    </Text>
+                                ) : (
+                                    <Text style={styles.validationError}>
+                                        ⚠ Must be multiple of GHS {dailyAmount.toFixed(2)} (daily amount)
+                                    </Text>
+                                )}
+                            </View>
+                        )}
                     </View>
 
                     {dailyAmount > 0 && !keyboardVisible && (
@@ -149,7 +193,7 @@ export const CollectionModal: React.FC<CollectionModalProps> = ({
                                 dailyAmount,
                                 dailyAmount * 2,
                                 dailyAmount * 5,
-                                100
+                                dailyAmount * 7
                             ].map((amount) => (
                                 <TouchableOpacity
                                     key={amount}
@@ -295,5 +339,18 @@ const styles = StyleSheet.create({
     },
     disabledBtn: {
         opacity: 0.6,
+    },
+    validationInfo: {
+        marginTop: 8,
+    },
+    validationSuccess: {
+        fontSize: 12,
+        color: LogoColors.status.success,
+        fontWeight: '500',
+    },
+    validationError: {
+        fontSize: 12,
+        color: LogoColors.status.error,
+        fontWeight: '500',
     },
 });
