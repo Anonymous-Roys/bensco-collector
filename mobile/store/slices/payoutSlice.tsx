@@ -5,14 +5,15 @@ import { payoutsAPI } from '@/services/api';
 // Async thunks
 export const fetchPayouts = createAsyncThunk(
   'payouts/fetchPayouts',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       const response = await payoutsAPI.listPayouts();
       return Array.isArray(response) ? response : response.results || [];
     } catch (error) {
-      // Return empty array instead of rejecting to prevent crashes
-      console.warn('Payouts API failed, returning empty array:', error);
-      return [];
+      console.warn('Payouts API failed:', error);
+      // Return current state to preserve existing data
+      const state = getState() as any;
+      return state.payouts.payouts || [];
     }
   }
 );

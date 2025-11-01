@@ -230,11 +230,12 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
                   <TouchableOpacity 
                     style={styles.maxButton}
                     onPress={() => {
-                      // Calculate max requestable amount: available_balance + commission
-                      // Since commission = requested_amount / 31, we solve: available_balance = requested_amount - (requested_amount / 31)
+                      // Calculate max requestable amount so that net payout equals available balance
+                      // Net payout = requested_amount - commission
+                      // available_balance = requested_amount - (requested_amount / 31)
                       // available_balance = requested_amount * (30/31)
-                      // requested_amount = available_balance * (31/30)
-                      const maxRequestable = clientBalance.available_balance * (31 / 30);
+                      // requested_amount = available_balance / (30/31) = available_balance * (31/30)
+                      const maxRequestable = clientBalance.available_balance * (30 / 31);
                       setRequestedAmount(maxRequestable.toFixed(2));
                     }}
                     disabled={submitting}
