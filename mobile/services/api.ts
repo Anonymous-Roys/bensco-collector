@@ -325,21 +325,28 @@ export const payoutsAPI = {
     }
   },
   listPayouts: async (): Promise<any> => {
-    try {
-      const response = await api.get(API_CONFIG.PAYOUTS.COLLECTOR_LIST);
-      return response.data;
-    } catch (error) {
-      console.warn('Collector payouts endpoint failed, trying fallback');
-      // If collector endpoint fails, try the general list endpoint
+    const endpoints = [
+      API_CONFIG.PAYOUTS.COLLECTOR_LIST,
+      API_CONFIG.PAYOUTS.COLLECTOR_HISTORY,
+      API_CONFIG.PAYOUTS.LIST,
+      '/payouts/list/',
+      '/pay/requests/',
+    ];
+    
+    for (const endpoint of endpoints) {
       try {
-        const fallbackResponse = await api.get(API_CONFIG.PAYOUTS.LIST);
-        return fallbackResponse.data;
-      } catch (fallbackError) {
-        console.warn('Both payout endpoints failed, returning empty array');
-        // Return empty array instead of throwing error to prevent crashes
-        return [];
+        console.log(`Trying payout endpoint: ${endpoint}`);
+        const response = await api.get(endpoint);
+        console.log(`Success with endpoint ${endpoint}:`, response.data);
+        return Array.isArray(response.data) ? response.data : response.data.results || [];
+      } catch (error) {
+        console.warn(`Endpoint ${endpoint} failed:`, error);
+        continue;
       }
     }
+    
+    console.warn('All payout endpoints failed, returning empty array');
+    return [];
   },
   approvePayout: async (id: string): Promise<any> => {
     try {

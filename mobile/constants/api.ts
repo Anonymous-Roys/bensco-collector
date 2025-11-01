@@ -34,6 +34,7 @@ export const API_CONFIG = {
     APPROVE: '/pay/approve/:id/',
     LIST: '/pay/list/',
     COLLECTOR_LIST: '/pay/collector-payouts/',
+    COLLECTOR_HISTORY: '/payouts/collector/',
     REJECT: '/pay/reject/:id/',
     MARK_PAID: '/pay/mark-paid/:id/',
     CLIENT_BALANCE: '/pay/client-balance/:client_id/',
