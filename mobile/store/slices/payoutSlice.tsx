@@ -11,9 +11,8 @@ export const fetchPayouts = createAsyncThunk(
       return Array.isArray(response) ? response : response.results || [];
     } catch (error) {
       console.warn('Payouts API failed:', error);
-      // Return current state to preserve existing data
-      const state = getState() as any;
-      return state.payouts.payouts || [];
+      // Return empty array instead of current state to avoid stale data
+      return [];
     }
   }
 );
