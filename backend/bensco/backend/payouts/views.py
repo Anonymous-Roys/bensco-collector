@@ -111,17 +111,42 @@ def mark_payout_paid(request, payout_id):
     if request.user.role != 'admin':
         return Response({'error': 'Only admins can mark payouts as paid'}, status=403)
 
-    # Mark as paid - the payout record tracks the deduction
-    payout.status = PayoutModel.StatusChoices.PAID
-    payout.paid_on = timezone.now().date()
-    payout.save()
+    from decimal import Decimal
+    from django.db import transaction
     
-    # Update available balance to reflect the payout
-    if payout.client:
-        payout.available_balance = payout.client.get_available_balance()
-        payout.save(update_fields=['available_balance'])
+    with transaction.atomic():
+        # Mark as paid
+        payout.status = PayoutModel.StatusChoices.PAID
+        payout.paid_on = timezone.now().date()
+        
+        # Ensure the net payout amount is properly calculated
+        if not payout.net_payout or payout.net_payout <= 0:
+            commission = payout.requested_amount / Decimal('31')
+            payout.net_payout = payout.requested_amount - commission
+            payout.commission = commission
+        
+        # Update the available balance snapshot at time of payment
+        if payout.client:
+            # Get current balance before this payout
+            current_balance = payout.client.get_available_balance()
+            
+            # Verify the payout is still valid (balance hasn't changed)
+            if payout.net_payout > current_balance:
+                return Response({
+                    'error': f'Payout amount (₵{payout.net_payout}) exceeds current available balance (₵{current_balance}). Please review the payout.'
+                }, status=400)
+            
+            # Update the available balance field to reflect balance at time of payment
+            payout.available_balance = current_balance
+        
+        payout.save()
 
-    return Response({'message': 'Payout marked as paid and deducted from client balance'}, status=200)
+    return Response({
+        'message': 'Payout marked as paid and deducted from client balance',
+        'payout_id': str(payout.id),
+        'net_amount_paid': float(payout.net_payout),
+        'remaining_balance': float(payout.client.get_available_balance() if payout.client else 0)
+    }, status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

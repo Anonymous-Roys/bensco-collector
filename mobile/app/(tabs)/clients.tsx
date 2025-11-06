@@ -130,6 +130,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
         next_of_kin: formData.next_of_kin || null,
         initial_balance: parseFloat(formData.initial_balance) || 0,
         address: addressId === 'none' ? null : addressId,
+        collector: 'all',
       };
       
       const response = await fetch('https://bensco-collector.onrender.com/clients/create/', {
