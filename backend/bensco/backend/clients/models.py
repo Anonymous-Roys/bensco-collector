@@ -28,6 +28,7 @@ class ClientModel(models.Model):
     is_fixed = models.BooleanField(default=True)
     start_date = models.DateField()
     initial_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Initial balance when client is created")
+    available_balance = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Current available balance (includes initial balance on creation)")
     created_at = models.DateTimeField(auto_now_add=True)
     
     def calculate_commission(self, total_collected, contributing_days=None):
@@ -75,9 +76,10 @@ class ClientModel(models.Model):
         from django.db.models import Sum
         
         try:
-            total_net_balance = Decimal('0')
+            # Start with stored available balance (includes initial balance from creation)
+            current_balance = Decimal(str(self.available_balance or 0))
             
-            # Process all cycles (closed and active)
+            # Add net contributions from all cycles
             all_cycles = self.savings_cycles.all()
             
             for cycle in all_cycles:
@@ -95,21 +97,20 @@ class ClientModel(models.Model):
                     cycle.contributions.aggregate(days=Sum('days_covered'))['days'] or 0
                 )
                 
-                # Calculate net amount (contributions - commission)
+                # Add net contributions (contributions - commission)
                 cycle_net = cycle_contributions - cycle_commission
-                
-                # Subtract any payouts already made for this cycle
-                paid_out = cycle.payouts.filter(
-                    status='paid'
-                ).aggregate(total=Sum('net_payout'))['total'] or 0
-                
-                # Available from this cycle = net amount - payouts made
-                cycle_available = max(cycle_net - paid_out, Decimal('0'))
-                total_net_balance += cycle_available
+                current_balance += cycle_net
             
-            # Add initial balance
-            total_net_balance += (self.initial_balance or Decimal('0'))
-            return total_net_balance
+            # Subtract all paid payouts
+            from payouts.models import PayoutModel
+            total_paid_out = PayoutModel.objects.filter(
+                client=self,
+                status='paid'
+            ).aggregate(total=Sum('net_payout'))['total'] or 0
+            
+            current_balance -= Decimal(str(total_paid_out))
+            
+            return max(current_balance, Decimal('0'))
             
         except Exception as e:
             print(f"Error calculating balance for client {self.name}: {e}")
@@ -141,6 +142,13 @@ class ClientModel(models.Model):
         return self.name
     
     def save(self, *args, **kwargs):
+        from decimal import Decimal
+        
         if not self.unique_code:
             self.unique_code = generate_unique_code(ClientModel, 'CLI')
+        
+        # Set available_balance to initial_balance on creation
+        if not self.pk and self.available_balance is None:
+            self.available_balance = self.initial_balance or Decimal('0')
+        
         super().save(*args, **kwargs)
