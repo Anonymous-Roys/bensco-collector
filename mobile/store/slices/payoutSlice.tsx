@@ -4,7 +4,7 @@ import { payoutsAPI } from '@/services/api';
 
 // Async thunks
 export const fetchPayouts = createAsyncThunk(
-  'payouts/fetchPayouts',
+  '/pay/list/',
   async (_, { rejectWithValue, getState }) => {
     try {
       const response = await payoutsAPI.listPayouts();

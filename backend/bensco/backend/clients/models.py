@@ -90,12 +90,12 @@ class ClientModel(models.Model):
                 # Add full contribution amount (no commission deducted)
                 current_balance += Decimal(str(cycle_contributions or 0))
             
-            # Subtract all paid payouts (net amount after commission was deducted at payout time)
+            # Subtract all paid payouts (full requested amount, not just net payout)
             from payouts.models import PayoutModel
             total_paid_out = PayoutModel.objects.filter(
                 client=self,
                 status='paid'
-            ).aggregate(total=Sum('net_payout'))['total'] or 0
+            ).aggregate(total=Sum('requested_amount'))['total'] or 0
             
             current_balance -= Decimal(str(total_paid_out or 0))
             

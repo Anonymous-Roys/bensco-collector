@@ -17,8 +17,10 @@ import { LogoColors } from '@/constants/Colors';
 import { RootState, AppDispatch } from '@/store';
 import { fetchPayouts } from '@/store/slices/payoutSlice';
 import { PayoutRequest } from '@/constants/types';
+// import { usePayouts } from '../../../../bensco-susu-admin/src/hooks/usePayouts';
 
 const PayoutsScreen = () => {
+  // const { pendingPayouts, allPayouts, approveMany, markManyPaid, rejectPayout, isLoading, fetchPayouts } = usePayouts();
   const dispatch = useDispatch<AppDispatch>();
   const { payouts, loading, error } = useSelector((state: RootState) => state.payouts);
   const [refreshing, setRefreshing] = useState(false);

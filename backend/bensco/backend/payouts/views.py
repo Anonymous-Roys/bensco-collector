@@ -131,9 +131,9 @@ def mark_payout_paid(request, payout_id):
             current_balance = payout.client.get_available_balance()
             
             # Verify the payout is still valid (balance hasn't changed)
-            if payout.net_payout > current_balance:
+            if payout.requested_amount > current_balance:
                 return Response({
-                    'error': f'Payout amount (₵{payout.net_payout}) exceeds current available balance (₵{current_balance}). Please review the payout.'
+                    'error': f'Requested amount (₵{payout.requested_amount}) exceeds current available balance (₵{current_balance}). Please review the payout.'
                 }, status=400)
             
             # Update the available balance field to reflect balance at time of payment

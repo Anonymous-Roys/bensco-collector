@@ -187,7 +187,7 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
                 <View style={[styles.infoCard, styles.balanceCard]}>
                   <Text style={styles.balanceAmount}>₵{clientBalance.available_balance.toFixed(2)}</Text>
                   <Text style={styles.balanceNote}>
-                    Net amount available for payout (commission calculated at request time)
+                    Full amount available for withdrawal (commission deducted from payout)
                   </Text>
                 </View>
               </View>
@@ -230,13 +230,9 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
                   <TouchableOpacity 
                     style={styles.maxButton}
                     onPress={() => {
-                      // Calculate max requestable amount so that net payout equals available balance
-                      // Net payout = requested_amount - commission
-                      // available_balance = requested_amount - (requested_amount / 31)
-                      // available_balance = requested_amount * (30/31)
-                      // requested_amount = available_balance / (30/31) = available_balance * (31/30)
-                      const maxRequestable = clientBalance.available_balance * (30 / 31);
-                      setRequestedAmount(maxRequestable.toFixed(2));
+                      // Client can request their full available balance
+                      // Commission is a withdrawal fee, balance is reduced by full requested amount
+                      setRequestedAmount(clientBalance.available_balance.toFixed(2));
                     }}
                     disabled={submitting}
                   >
@@ -244,7 +240,7 @@ export const PayoutRequestModal: React.FC<PayoutRequestModalProps> = ({
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.inputNote}>
-                  Available balance: ₵{clientBalance.available_balance.toFixed(2)}. Commission is deducted as requested amount ÷ 31. Net payout cannot exceed available balance.
+                  Available balance: ₵{clientBalance.available_balance.toFixed(2)}. Commission (÷31) is a withdrawal fee - you receive the net amount.
                 </Text>
               </View>
 
