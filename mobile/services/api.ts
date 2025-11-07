@@ -326,8 +326,7 @@ export const payoutsAPI = {
   },
   listPayouts: async (): Promise<any> => {
     const endpoints = [
-      API_CONFIG.PAYOUTS.COLLECTOR_LIST,
-      API_CONFIG.PAYOUTS.COLLECTOR_HISTORY,
+      '/pay/my-payouts/',
       API_CONFIG.PAYOUTS.LIST,
       '/payouts/list/',
       '/pay/requests/',
