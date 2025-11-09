@@ -87,17 +87,21 @@ export default function CollectorHome() {
       
       setDataLoading(true);
       try {
-        // Fetch clients and contributions in parallel
+        // Fetch clients, collector stats, and recent contributions in parallel
         await Promise.all([
-          dispatch(fetchClients()).unwrap(), // unwrap() to handle promise rejection
+          dispatch(fetchClients()).unwrap(),
+          contributionAPI.getCollectorStats(),
           contributionAPI.getContributions()
-        ]).then(([clientsResult, contribs]) => {
+        ]).then(([clientsResult, stats, contribs]) => {
+          console.log('Collector stats:', stats);
           console.log('Raw contributions:', contribs);
           
-          const processedData = processContributions(contribs || []);
+          // Use collector stats for metrics (more accurate)
+          setTodayTotal(stats.today_total || 0);
+          setClientsVisited(stats.today_count || 0);
           
-          setTodayTotal(processedData.todayTotal);
-          setClientsVisited(processedData.clientsVisited);
+          // Process recent collections from contributions
+          const processedData = processContributions(contribs || []);
           setRecentCollections(processedData.recentCollections);
         });
       } catch (error) {
@@ -141,12 +145,15 @@ export default function CollectorHome() {
     try {
       await Promise.all([
         dispatch(fetchClients()).unwrap(),
+        contributionAPI.getCollectorStats(),
         contributionAPI.getContributions()
-      ]).then(([clientsResult, contribs]) => {
-        const processedData = processContributions(contribs || []);
+      ]).then(([clientsResult, stats, contribs]) => {
+        // Use collector stats for metrics
+        setTodayTotal(stats.today_total || 0);
+        setClientsVisited(stats.today_count || 0);
         
-        setTodayTotal(processedData.todayTotal);
-        setClientsVisited(processedData.clientsVisited);
+        // Process recent collections
+        const processedData = processContributions(contribs || []);
         setRecentCollections(processedData.recentCollections);
       });
     } catch (error) {

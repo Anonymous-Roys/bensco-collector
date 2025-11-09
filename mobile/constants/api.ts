@@ -22,6 +22,7 @@ export const API_CONFIG = {
   // Contribution endpoints
   CONTRIBUTIONS: {
     LIST: '/contributions/',
+    COLLECTOR_STATS: '/contributions/collector-stats/',
     CREATE: '/contributions/create/',
     BY_CLIENT: '/contributions/client/:client_id/',
     BULK_CREATE: '/contributions/create/bulk/',

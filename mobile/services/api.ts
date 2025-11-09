@@ -133,10 +133,11 @@ export const authAPI = {
 
 // Client API methods
 export const clientAPI = {
-  // Get all clients
+  // Get all clients (handle pagination)
   getClients: async (): Promise<ClientListResponse> => {
     try {
-      const response: AxiosResponse<ClientListResponse> = await api.get(API_CONFIG.CLIENTS.LIST);
+      // Add large page_size to get all clients at once
+      const response: AxiosResponse<ClientListResponse> = await api.get(`${API_CONFIG.CLIENTS.LIST}?page_size=1000`);
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -178,10 +179,11 @@ export const clientAPI = {
 
 // Contribution API methods
 export const contributionAPI = {
-  // Get all contributions
+  // Get all contributions (collector-specific for mobile app)
   getContributions: async (): Promise<Contribution[]> => {
     try {
-      const response: AxiosResponse<ContributionListResponse> = await api.get(API_CONFIG.CONTRIBUTIONS.LIST);
+      // Mobile app gets collector-specific contributions with large page size
+      const response: AxiosResponse<ContributionListResponse> = await api.get(`${API_CONFIG.CONTRIBUTIONS.LIST}?page_size=1000`);
       const data = response.data as any;
       if (Array.isArray(data)) return data;
       if (data && Array.isArray(data.results)) return data.results;
@@ -189,6 +191,20 @@ export const contributionAPI = {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const apiError: ApiError = error.response?.data || { detail: 'Failed to fetch contributions' };
+        throw new Error(apiError.detail);
+      }
+      throw error;
+    }
+  },
+
+  // Get collector stats (for dashboard metrics)
+  getCollectorStats: async (): Promise<any> => {
+    try {
+      const response = await api.get(API_CONFIG.CONTRIBUTIONS.COLLECTOR_STATS);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const apiError: ApiError = error.response?.data || { detail: 'Failed to fetch collector stats' };
         throw new Error(apiError.detail);
       }
       throw error;
