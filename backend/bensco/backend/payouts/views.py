@@ -288,30 +288,23 @@ def request_client_payout(request, client_id):
         if existing_payout:
             return Response({'detail': 'A payout request for this client is already pending or approved.'}, status=400)
         
-        # Get current cycle contributions
-        current_cycle = client.savings_cycles.filter(status='active').first()
-        if not current_cycle:
-            return Response({'detail': 'No active savings cycle found for this client.'}, status=400)
-        
-        cycle_data = current_cycle.contributions.aggregate(
-            total=Sum('amount'),
-            days=Sum('days_covered')
-        )
-        
-        total_collected = cycle_data['total'] or 0
-        contributing_days = cycle_data['days'] or 0
-        
-        if total_collected <= 0:
-            return Response({'detail': 'No collections found for this client.'}, status=400)
-        
-        # Calculate commission using new business logic
-        # Calculate commission using new business logic: requested_amount / 31
-        commission = requested_amount / Decimal('31')
+        # Get available balance (works across all cycles)
         available_balance = client.get_available_balance()
         
-
+        if available_balance <= 0:
+            return Response({'detail': 'Client has no available balance for payout.'}, status=400)
         
-        # Calculate net payout (requested amount - commission)
+        # Validate requested amount against available balance
+        if requested_amount > available_balance:
+            return Response({'detail': f'Requested amount (₵{requested_amount}) exceeds available balance (₵{available_balance}).'}, status=400)
+        
+        # Get or create current cycle for reference (but payout works regardless)
+        current_cycle = client.get_current_cycle()
+        
+        # Calculate commission: requested_amount / 31
+        commission = requested_amount / Decimal('31')
+        
+        # Calculate net payout (what client receives)
         net_payout = requested_amount - commission
         
         # Create payout request
@@ -321,7 +314,7 @@ def request_client_payout(request, client_id):
             payout_type=PayoutModel.PayoutTypeChoices.CLIENT_SPECIFIC,
             requested_amount=requested_amount,
             available_balance=available_balance,
-            total_paid=total_collected,
+            total_paid=available_balance,  # Total available across all cycles
             commission=commission,
             net_payout=net_payout,
             requested_by=request.user

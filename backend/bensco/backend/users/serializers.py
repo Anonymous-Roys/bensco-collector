@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from .models import UserModel
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import timedelta
 
 class UserModelSerializer(serializers.ModelSerializer):
     class Meta:
@@ -59,6 +61,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
+
+        # Set role-based token lifetimes
+        if user.role == 'admin':
+            # Admin tokens last 3 days
+            token.set_exp(lifetime=timedelta(days=3))
+        elif user.role == 'collector':
+            # Collector tokens last 12 hours
+            token.set_exp(lifetime=timedelta(hours=12))
+        else:
+            # Default: 30 minutes
+            token.set_exp(lifetime=timedelta(minutes=30))
 
         # Custom claims
         token['username'] = user.username
