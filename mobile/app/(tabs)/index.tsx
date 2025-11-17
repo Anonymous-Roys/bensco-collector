@@ -60,18 +60,30 @@ export default function CollectorHome() {
 
     const uniqueClientsCount = uniqueClientIds.size;
 
-    // Get recent collections
-    const recentItems = contributions.slice(0, 10).map((c: any) => {
-      const dateString = c.date || c.created_at || c.createdAt || c.timestamp;
-      
-      return {
-        id: c.id,
-        clientName: c.client_name || c.client || 'Client',
-        amount: parseFloat(c.amount) || 0,
-        time: dateString,
-        synced: true,
-      };
-    });
+    // Get recent collections (latest 5)
+    const recentItems = contributions
+      .sort((a: any, b: any) => {
+        const dateA = new Date(a.created_at || a.date || a.timestamp);
+        const dateB = new Date(b.created_at || b.date || b.timestamp);
+        return dateB.getTime() - dateA.getTime(); // Sort by newest first
+      })
+      .slice(0, 5)
+      .map((c: any) => {
+        const dateString = c.date || c.created_at || c.createdAt || c.timestamp;
+        const contributionDate = new Date(dateString);
+        
+        return {
+          id: c.id,
+          clientName: c.client_name || c.client || 'Client',
+          amount: parseFloat(c.amount) || 0,
+          time: contributionDate.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+          }),
+          synced: true,
+        };
+      });
 
     return {
       todayTotal: todayTotalAmount,
@@ -87,31 +99,37 @@ export default function CollectorHome() {
       
       setDataLoading(true);
       try {
-        // Fetch clients, collector stats, and recent contributions in parallel
-        await Promise.all([
+        // Fetch data with individual error handling
+        const results = await Promise.allSettled([
           dispatch(fetchClients()).unwrap(),
           contributionAPI.getCollectorStats(),
           contributionAPI.getContributions()
-        ]).then(([clientsResult, stats, contribs]) => {
-          console.log('Collector stats:', stats);
-          console.log('Raw contributions:', contribs);
-          
-          // Use collector stats for metrics (more accurate)
-          setTodayTotal(stats.today_total || 0);
-          setClientsVisited(stats.today_count || 0);
-          
-          // Process recent collections from contributions
-          const processedData = processContributions(contribs || []);
+        ]);
+
+        const [clientsResult, statsResult, contribsResult] = results;
+        
+        // Handle stats
+        if (statsResult.status === 'fulfilled') {
+          console.log('Collector stats:', statsResult.value);
+          setTodayTotal(statsResult.value.today_total || 0);
+          setClientsVisited(statsResult.value.today_count || 0);
+        }
+        
+        // Handle contributions
+        if (contribsResult.status === 'fulfilled') {
+          console.log('Raw contributions:', contribsResult.value);
+          const processedData = processContributions(contribsResult.value || []);
           setRecentCollections(processedData.recentCollections);
-        });
+        }
+        
+        // Show error only if critical data failed to load
+        const failedCount = results.filter(r => r.status === 'rejected').length;
+        if (failedCount > 0) {
+          console.warn(`${failedCount} API calls failed during initial load`);
+        }
       } catch (error) {
         console.error('Error loading data:', error);
-        Alert.alert('Error', 'Failed to load data. Please try again.');
-        
-        // Reset data on error
-        setRecentCollections([]);
-        setTodayTotal(0);
-        setClientsVisited(0);
+        // Don't show alert on initial load, just log the error
       } finally {
         setDataLoading(false);
       }
@@ -143,22 +161,35 @@ export default function CollectorHome() {
     
     setRefreshing(true);
     try {
-      await Promise.all([
+      // Fetch data with individual error handling
+      const results = await Promise.allSettled([
         dispatch(fetchClients()).unwrap(),
         contributionAPI.getCollectorStats(),
         contributionAPI.getContributions()
-      ]).then(([clientsResult, stats, contribs]) => {
-        // Use collector stats for metrics
-        setTodayTotal(stats.today_total || 0);
-        setClientsVisited(stats.today_count || 0);
-        
-        // Process recent collections
-        const processedData = processContributions(contribs || []);
+      ]);
+
+      // Process results even if some fail
+      const [clientsResult, statsResult, contribsResult] = results;
+      
+      // Handle stats
+      if (statsResult.status === 'fulfilled') {
+        setTodayTotal(statsResult.value.today_total || 0);
+        setClientsVisited(statsResult.value.today_count || 0);
+      }
+      
+      // Handle contributions
+      if (contribsResult.status === 'fulfilled') {
+        const processedData = processContributions(contribsResult.value || []);
         setRecentCollections(processedData.recentCollections);
-      });
+      }
+      
+      // Show error only if all requests failed
+      const failedCount = results.filter(r => r.status === 'rejected').length;
+      if (failedCount === results.length) {
+        Alert.alert('Error', 'Unable to refresh data. Please check your connection.');
+      }
     } catch (error) {
       console.error('Error refreshing:', error);
-      Alert.alert('Error', 'Failed to refresh data.');
     } finally {
       setRefreshing(false);
     }

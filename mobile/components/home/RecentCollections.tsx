@@ -36,7 +36,7 @@ export const RecentCollections = ({ collections }: RecentCollectionsProps) => {
     <>
       <Text style={styles.sectionTitle}>Recent Collections</Text>
       <View style={styles.recentList}>
-        {collections.slice(0, 3).map((item) => (
+        {collections.slice(0, 5).map((item) => (
           <CollectionItem key={item.id} {...item} />
         ))}
       </View>
