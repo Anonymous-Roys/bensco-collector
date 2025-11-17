@@ -211,6 +211,20 @@ export const contributionAPI = {
     }
   },
 
+  // Get grouped contributions by date
+  getGroupedContributions: async (): Promise<any> => {
+    try {
+      const response = await api.get(API_CONFIG.CONTRIBUTIONS.GROUPED);
+      return response.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const apiError: ApiError = error.response?.data || { detail: 'Failed to fetch grouped contributions' };
+        throw new Error(apiError.detail);
+      }
+      throw error;
+    }
+  },
+
   // Create a new contribution
   createContribution: async (contributionData: ContributionCreateRequest): Promise<Contribution> => {
     try {

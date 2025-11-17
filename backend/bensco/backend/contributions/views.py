@@ -5,6 +5,7 @@ from rest_framework import status
 from django.db.models import Sum, Count
 from django.utils import timezone
 from datetime import timedelta
+from collections import defaultdict
 
 from .models import ContributionModel
 from .serializers import ContributionModelSerializer
@@ -226,3 +227,45 @@ def get_collector_stats(request):
         'this_month_total': this_month_total,
         'this_week_total': this_week_total
     })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_grouped_contributions(request):
+    """Get contributions grouped by date for collector"""
+    if request.user.role != 'collector':
+        return Response({'detail': 'Only collectors can access this endpoint'}, status=403)
+    
+    from django.db.models import Sum, Count
+    from collections import defaultdict
+    
+    # Get all contributions for this collector
+    contributions = ContributionModel.objects.filter(
+        collector=request.user
+    ).select_related('client').order_by('-date', '-created_at')
+    
+    # Group by date
+    grouped = defaultdict(list)
+    daily_totals = defaultdict(float)
+    
+    for contrib in contributions:
+        date_str = contrib.date.isoformat()
+        grouped[date_str].append({
+            'id': str(contrib.id),
+            'client_name': contrib.client.name if contrib.client else 'Unknown',
+            'amount': float(contrib.amount),
+            'time': contrib.created_at.strftime('%H:%M'),
+            'created_at': contrib.created_at.isoformat()
+        })
+        daily_totals[date_str] += float(contrib.amount)
+    
+    # Format response
+    result = []
+    for date_str in sorted(grouped.keys(), reverse=True):
+        result.append({
+            'date': date_str,
+            'total_amount': daily_totals[date_str],
+            'count': len(grouped[date_str]),
+            'contributions': grouped[date_str]
+        })
+    
+    return Response(result)

@@ -23,6 +23,7 @@ export const API_CONFIG = {
   CONTRIBUTIONS: {
     LIST: '/contributions/',
     COLLECTOR_STATS: '/contributions/collector-stats/',
+    GROUPED: '/contributions/grouped/',
     CREATE: '/contributions/create/',
     BY_CLIENT: '/contributions/client/:client_id/',
     BULK_CREATE: '/contributions/create/bulk/',

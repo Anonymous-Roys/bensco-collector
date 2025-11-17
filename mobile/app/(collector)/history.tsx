@@ -7,14 +7,25 @@ import { Client, Contribution } from '@/constants/types';
 import { MetricCard } from '@/components/home/MetricsCards';
 import { clientAPI, contributionAPI } from '@/services/api';
 
-// Live data will be fetched in component
+interface GroupedContribution {
+  date: string;
+  total_amount: number;
+  count: number;
+  contributions: {
+    id: string;
+    client_name: string;
+    amount: number;
+    time: string;
+    created_at: string;
+  }[];
+}
 
 export default function CollectionHistory() {
   const { clientId } = useLocalSearchParams<{ clientId?: string }>();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [contributions, setContributions] = useState<Contribution[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const [groupedData, setGroupedData] = useState<GroupedContribution[]>([]);
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let mounted = true;
@@ -22,14 +33,9 @@ export default function CollectionHistory() {
       try {
         setLoading(true);
         setError(null);
-        const [contribs, clientsResp] = await Promise.all([
-          clientId ? contributionAPI.getContributionsByClient(clientId) : contributionAPI.getContributions(),
-          clientAPI.getClients().catch(() => ({ results: [] as Client[] } as any)),
-        ]);
+        const data = await contributionAPI.getGroupedContributions();
         if (!mounted) return;
-        setContributions(contribs || []);
-        const list = Array.isArray((clientsResp as any).results) ? (clientsResp as any).results : (clientsResp as any);
-        setClients(Array.isArray(list) ? list : []);
+        setGroupedData(data || []);
       } catch (e: any) {
         if (!mounted) return;
         setError(e?.message || 'Failed to load history');
@@ -39,76 +45,94 @@ export default function CollectionHistory() {
     };
     load();
     return () => { mounted = false; };
-  }, [clientId]);
+  }, []);
 
-  const clientIdToName = useMemo(() => {
-    const map: Record<string, string> = {};
-    for (const c of clients) map[c.id] = c.name;
-    return map;
-  }, [clients]);
+  const totalCollected = useMemo(() => {
+    return groupedData.reduce((sum, day) => sum + day.total_amount, 0);
+  }, [groupedData]);
 
-const totalCollected = useMemo(() => {
-  const today = new Date().toDateString();
-  console.log('Today:', today);
-  
-  const result = contributions.reduce((sum, c) => {
-    const dateString = c.created_at;
-    const contributionDate = new Date(dateString).toDateString();
-    const amount = parseFloat(c.amount) || 0;
-    const isToday = contributionDate === today;
-    
-    if (isToday) {
-      console.log('Included contribution:', { amount, date: contributionDate });
+  const totalCount = useMemo(() => {
+    return groupedData.reduce((sum, day) => sum + day.count, 0);
+  }, [groupedData]);
+
+  const toggleDateExpansion = (date: string) => {
+    const newExpanded = new Set(expandedDates);
+    if (newExpanded.has(date)) {
+      newExpanded.delete(date);
+    } else {
+      newExpanded.add(date);
     }
-    
-    return isToday ? sum + amount : sum;
-  }, 0);
-  
-  console.log('Total collected today:', result);
-  return result;
-}, [contributions]);
-
-  const pendingCollections = 0; // Backend doesn't expose status in Contribution
+    setExpandedDates(newExpanded);
+  };
 
   // Format date for display
   const formatDisplayDate = (dateStr: string) => {
     const options: Intl.DateTimeFormatOptions = { 
-      weekday: 'short', 
+      weekday: 'long', 
       day: 'numeric', 
-      month: 'short' 
+      month: 'long',
+      year: 'numeric'
     };
     return new Date(dateStr).toLocaleDateString('en-GB', options);
   };
 
-  // Render each collection record
-  const renderItem = ({ item }: { item: Contribution }) => (
-    <TouchableOpacity 
-      style={styles.recordCard}
-    //   onPress={() => router.push(`/(collector)/collection/${item.id}`)}
-    >
-      <View style={styles.recordLeft}>
+  // Render individual contribution within a day
+  const renderContribution = (contribution: any) => (
+    <View key={contribution.id} style={styles.contributionItem}>
+      <View style={styles.contributionLeft}>
         <MaterialCommunityIcons 
-          name={'cash'} 
-          size={24} 
-          color={LogoColors.primary.red} 
+          name="account" 
+          size={20} 
+          color={LogoColors.text.secondary} 
         />
-        <View style={styles.recordDetails}>
-          <Text style={styles.clientName}>{clientIdToName[item.client] || item.client}</Text>
-          <Text style={styles.recordDate}>
-            {formatDisplayDate(item.created_at)} • {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </Text>
+        <View style={styles.contributionDetails}>
+          <Text style={styles.contributionClientName}>{contribution.client_name}</Text>
+          <Text style={styles.contributionTime}>{contribution.time}</Text>
         </View>
       </View>
-      <View style={styles.recordRight}>
-        <Text style={styles.amountText}>GHS {(parseFloat(item.amount) || 0).toFixed(2)}</Text>
-        <MaterialCommunityIcons 
-          name={'check-circle'} 
-          size={20} 
-          color={LogoColors.status.success} 
-        />
-      </View>
-    </TouchableOpacity>
+      <Text style={styles.contributionAmount}>GHS {contribution.amount.toFixed(2)}</Text>
+    </View>
   );
+
+  // Render each day folder
+  const renderDayFolder = ({ item }: { item: GroupedContribution }) => {
+    const isExpanded = expandedDates.has(item.date);
+    
+    return (
+      <View style={styles.dayContainer}>
+        <TouchableOpacity 
+          style={styles.dayHeader}
+          onPress={() => toggleDateExpansion(item.date)}
+        >
+          <View style={styles.dayHeaderLeft}>
+            <MaterialCommunityIcons 
+              name={isExpanded ? "folder-open" : "folder"} 
+              size={24} 
+              color={LogoColors.primary.red} 
+            />
+            <View style={styles.dayHeaderDetails}>
+              <Text style={styles.dayDate}>{formatDisplayDate(item.date)}</Text>
+              <Text style={styles.daySubtitle}>{item.count} collections</Text>
+            </View>
+          </View>
+          <View style={styles.dayHeaderRight}>
+            <Text style={styles.dayTotal}>GHS {item.total_amount.toFixed(2)}</Text>
+            <MaterialCommunityIcons 
+              name={isExpanded ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color={LogoColors.text.secondary} 
+            />
+          </View>
+        </TouchableOpacity>
+        
+        {isExpanded && (
+          <View style={styles.contributionsContainer}>
+            {item.contributions.map(renderContribution)}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // Get icon for payment method
   // const getPaymentMethodIcon = (_method: 'cash' | 'momo' | 'bank') => 'cash';
@@ -123,25 +147,21 @@ const totalCollected = useMemo(() => {
         <MaterialCommunityIcons name="chevron-left" size={44} color="white" />
       </TouchableOpacity>
   
-        <Text style={styles.headerTitle}>
-          {clientId ? `${clientIdToName[clientId] || 'Client'}'s Collections` : 'Collection History'}
-        </Text>
+        <Text style={styles.headerTitle}>Collection History</Text>
         </View>
         <View style={styles.summaryRow}>
           <MetricCard
-        icon="cash"
-        value={`GHS ${totalCollected.toFixed(2)}`}
-        label="Total Collected"
-        backgroundColor={LogoColors.status.success}
-      />
-          
-          {/* <MetricCard
-        icon="clock"
-        value={pendingCollections.toString()}
-        label="Pending"
-        // backgroundColor={[styles.summaryValue, { color: LogoColors.status.warning }]}
-        backgroundColor={LogoColors.status.warning }
-      /> */}
+            icon="cash"
+            value={`GHS ${totalCollected.toFixed(2)}`}
+            label="Total Collected"
+            backgroundColor={LogoColors.status.success}
+          />
+          <MetricCard
+            icon="clipboard-list"
+            value={totalCount.toString()}
+            label="Total Collections"
+            backgroundColor={LogoColors.primary.red}
+          />
         </View>
       </View>
 
@@ -154,9 +174,9 @@ const totalCollected = useMemo(() => {
       )}
       {/* Collection List */}
       <FlatList
-        data={contributions}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
+        data={groupedData}
+        renderItem={renderDayFolder}
+        keyExtractor={item => item.date}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
           <View style={styles.emptyState}>
@@ -299,5 +319,103 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: LogoColors.text.secondary,
     marginTop: 16,
+  },
+  
+  // New styles for grouped view
+  dayContainer: {
+    backgroundColor: LogoColors.background.surface,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+    overflow: 'hidden',
+  },
+  
+  dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: LogoColors.background.secondary,
+  },
+  
+  dayHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  
+  dayHeaderDetails: {
+    gap: 2,
+  },
+  
+  dayDate: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: LogoColors.text.primary,
+  },
+  
+  daySubtitle: {
+    fontSize: 12,
+    color: LogoColors.text.secondary,
+  },
+  
+  dayHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  
+  dayTotal: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: LogoColors.primary.red,
+  },
+  
+  contributionsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  
+  contributionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginVertical: 2,
+    backgroundColor: LogoColors.background.primary,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: LogoColors.primary.red,
+  },
+  
+  contributionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  
+  contributionDetails: {
+    gap: 2,
+  },
+  
+  contributionClientName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: LogoColors.text.primary,
+  },
+  
+  contributionTime: {
+    fontSize: 12,
+    color: LogoColors.text.secondary,
+  },
+  
+  contributionAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: LogoColors.text.primary,
   },
 });
