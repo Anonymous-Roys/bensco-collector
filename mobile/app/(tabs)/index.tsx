@@ -69,18 +69,32 @@ export default function CollectorHome() {
       })
       .slice(0, 5)
       .map((c: any) => {
-        const dateString = c.date || c.created_at || c.createdAt || c.timestamp;
-        const contributionDate = new Date(dateString);
+        // Debug: Log the raw contribution data
+        console.log('Raw contribution:', c);
+        
+        const dateString = c.created_at || c.date || c.timestamp;
+        console.log('Date string:', dateString);
+        
+        // Use the raw timestamp or format it properly
+        let displayTime = 'Unknown';
+        if (dateString) {
+          const date = new Date(dateString);
+          if (!isNaN(date.getTime())) {
+            displayTime = date.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric', 
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            });
+          }
+        }
         
         return {
           id: c.id,
           clientName: c.client_name || c.client || 'Client',
           amount: parseFloat(c.amount) || 0,
-          time: contributionDate.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: true 
-          }),
+          time: displayTime,
           synced: true,
         };
       });
@@ -117,8 +131,10 @@ export default function CollectorHome() {
         
         // Handle contributions
         if (contribsResult.status === 'fulfilled') {
-          console.log('Raw contributions:', contribsResult.value);
+          console.log('Raw contributions response:', contribsResult.value);
+          console.log('Sample contribution:', contribsResult.value?.[0]);
           const processedData = processContributions(contribsResult.value || []);
+          console.log('Processed collections:', processedData.recentCollections);
           setRecentCollections(processedData.recentCollections);
         }
         
