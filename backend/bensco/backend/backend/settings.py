@@ -102,7 +102,8 @@ DATABASES = {
     #     'NAME': 'bsl_db',
     #     'USER': 'postgres',
     #     'PASSWORD': '11001',
-    #     'HOST': 'db',
+    #     # 'HOST': 'db',
+    #     'HOST': 'localhost',
         
     #     'PORT': '5432',
     # } 
