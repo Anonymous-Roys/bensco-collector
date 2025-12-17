@@ -92,28 +92,41 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-     "default": dj_database_url.config(
-        default=os.environ.get("DATABASE_URL"),
-        conn_max_age=600,
-        ssl_require=True,
-    )
-    #  "default": dj_database_url.config(
-    #     default="postgresql://postgres:11001@db:5432/bsl_db"  # docker compose db service
-    # )
-    # 'default': {
+# DATABASES = {
+#      "default": dj_database_url.config(
+#         default=os.environ.get("DATABASE_URL"),
+#         conn_max_age=600,
+#         ssl_require=True,
+#     )
+#     #  "default": dj_database_url.config(
+#     #     default="postgresql://postgres:11001@db:5432/bsl_db"  # docker compose db service
+#     # )
+#     # 'default': {
 
-    #     'ENGINE': 'django.db.backends.postgresql',
-    #     'NAME': 'bsl_db',
-    #     'USER': 'postgres',
-    #     'PASSWORD': '11001',
-    #     # 'HOST': 'db',
-    #     'HOST': 'localhost',
+#     #     'ENGINE': 'django.db.backends.postgresql',
+#     #     'NAME': 'bsl_db',
+#     #     'USER': 'postgres',
+#     #     'PASSWORD': '11001',
+#     #     # 'HOST': 'db',
+#     #     'HOST': 'localhost',
         
-    #     'PORT': '5432',
-    # } 
-}
+#     #     'PORT': '5432',
+#     # } 
+# }
 
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DBNAME"),
+        "USER": os.getenv("USER"),
+        "PASSWORD": os.getenv("PASSWORD"),
+        "HOST": "your_supabase_ipv4_here",  # Use IPv4
+        "PORT": os.getenv("PORT", 5432),
+        "OPTIONS": {
+            "sslmode": "require",
+        },
+    }
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
