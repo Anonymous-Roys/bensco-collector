@@ -120,7 +120,7 @@ DATABASES = {
         "NAME": os.getenv("DBNAME"),
         "USER": os.getenv("USER"),
         "PASSWORD": os.getenv("PASSWORD"),
-        "HOST": "your_supabase_ipv4_here",  # Use IPv4
+        "HOST": "2600:1f13:838:6e0f:5f06:ae74:c44b:7f6",  # Use IPv4
         "PORT": os.getenv("PORT", 5432),
         "OPTIONS": {
             "sslmode": "require",
