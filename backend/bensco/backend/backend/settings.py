@@ -102,9 +102,9 @@ DATABASES = {
     #         'MIN_CONNS': 5,
     #     }
     # )
-    #  "default": dj_database_url.config(
-    #     default="postgresql://postgres:11001@db:5432/bsl_db"  # docker compose db service
-    # )
+     "default": dj_database_url.config(
+        default="postgresql://postgres:11001@db:5432/bsl_db"  # docker compose db service
+    )
     # 'default': {
     #     'ENGINE': 'django.db.backends.postgresql',
     #     'NAME': 'bsl_db_local',
