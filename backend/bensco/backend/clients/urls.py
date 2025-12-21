@@ -4,6 +4,7 @@ from . import views
 urlpatterns = [
     path('create/', views.create_client_view, name='create_client'),
     path('list/', views.get_clients_view, name='list_clients'),
+    path('search/', views.search_clients_view, name='search_clients'),
     path('<uuid:client_id>/', views.client_detail, name='client_detail'),
     path('<uuid:client_id>/assign-collector/', views.assign_collector, name='assign_collector'),
     path('collectors/', views.get_available_collectors, name='get_available_collectors'),

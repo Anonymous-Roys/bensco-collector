@@ -1,7 +1,7 @@
 ###
 # AUTH MODULE
 
-POST https://bensco-collector.onrender.com8000/auth/login/
+POST http://127.0.0.1:80008000/auth/login/
 Content-Type: application/json
 
 {
@@ -11,7 +11,7 @@ Content-Type: application/json
 
 ###
 
-# POST https://bensco-collector.onrender.com8000/auth/logout
+# POST http://127.0.0.1:80008000/auth/logout
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -19,7 +19,7 @@ Content-Type: application/json
 
 # ###
 
-# POST https://bensco-collector.onrender.com8000/auth/reset-request
+# POST http://127.0.0.1:80008000/auth/reset-request
 # Content-Type: application/json
 
 # {
@@ -28,7 +28,7 @@ Content-Type: application/json
 
 # ###
 
-# POST https://bensco-collector.onrender.com8000/auth/reset-confirm
+# POST http://127.0.0.1:80008000/auth/reset-confirm
 # Content-Type: application/json
 
 # {
@@ -38,7 +38,7 @@ Content-Type: application/json
 
 # ###
 
-# POST https://bensco-collector.onrender.com8000/auth/change-password
+# POST http://127.0.0.1:80008000/auth/change-password
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -50,12 +50,12 @@ Content-Type: application/json
 # ###
 # # USERS MODULE (Admin only)
 
-# GET https://bensco-collector.onrender.com8000/users/
+# GET http://127.0.0.1:80008000/users/
 # Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc1MzI0NjM3MSwiaWF0IjoxNzUzMTU5OTcxLCJqdGkiOiJjOTRlM2IwMmE1Yzc0ZTdkOTE0ZThlY2EzMWE4MGExZSIsInVzZXJfaWQiOiIzMDYwODNhYy1jMjdlLTRhZGEtYWE5NC1jMjA0ZGY5NzYwNDciLCJ1c2VybmFtZSI6ImRhdmUiLCJyb2xlIjoiY29sbGVjdG9yIiwidW5pcXVlX2NvZGUiOiJCU0wtQ09MLUZDNkMzIiwibXVzdF9jaGFuZ2VfcGFzc3dvcmQiOnRydWV9.bicK636zbl_Hz7UjZElHJZfDvci66IJrGbWfvqv2tnA
 
 # ###
 
-# POST https://bensco-collector.onrender.com8000/users/
+# POST http://127.0.0.1:80008000/users/
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -68,7 +68,7 @@ Content-Type: application/json
 
 # ###
 
-# PATCH https://bensco-collector.onrender.com8000/users/1
+# PATCH http://127.0.0.1:80008000/users/1
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -78,19 +78,19 @@ Content-Type: application/json
 
 # ###
 
-# DELETE https://bensco-collector.onrender.com8000/users/1
+# DELETE http://127.0.0.1:80008000/users/1
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
 # # CLIENTS MODULE
 
-# GET https://bensco-collector.onrender.com8000/clients/
+# GET http://127.0.0.1:80008000/clients/
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
-# POST https://bensco-collector.onrender.com8000/clients/
+# POST http://127.0.0.1:80008000/clients/
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -101,12 +101,12 @@ Content-Type: application/json
 
 # ###
 
-# GET https://bensco-collector.onrender.com8000/clients/1
+# GET http://127.0.0.1:80008000/clients/1
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
-# PATCH https://bensco-collector.onrender.com8000/clients/1
+# PATCH http://127.0.0.1:80008000/clients/1
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -117,12 +117,12 @@ Content-Type: application/json
 # ###
 # # CONTRIBUTIONS MODULE
 
-# GET https://bensco-collector.onrender.com8000/contributions/
+# GET http://127.0.0.1:80008000/contributions/
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
-# POST https://bensco-collector.onrender.com8000/contributions/
+# POST http://127.0.0.1:80008000/contributions/
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -133,12 +133,12 @@ Content-Type: application/json
 
 # ###
 
-# GET https://bensco-collector.onrender.com8000/contributions/1
+# GET http://127.0.0.1:80008000/contributions/1
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
-# PATCH https://bensco-collector.onrender.com8000/contributions/1
+# PATCH http://127.0.0.1:80008000/contributions/1
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -149,12 +149,12 @@ Content-Type: application/json
 # ###
 # # SAVINGS CYCLES MODULE
 
-# GET https://bensco-collector.onrender.com8000/cycles/
+# GET http://127.0.0.1:80008000/cycles/
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
-# POST https://bensco-collector.onrender.com8000/cycles/
+# POST http://127.0.0.1:80008000/cycles/
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -165,24 +165,24 @@ Content-Type: application/json
 
 # ###
 
-# GET https://bensco-collector.onrender.com8000/cycles/client/1
+# GET http://127.0.0.1:80008000/cycles/client/1
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
-# PATCH https://bensco-collector.onrender.com8000/cycles/1/close
+# PATCH http://127.0.0.1:80008000/cycles/1/close
 # Authorization: Bearer {{jwt_token}}
 
 # {}
 # ###
 # # PAYOUTS MODULE
 
-# GET https://bensco-collector.onrender.com8000/payouts/
+# GET http://127.0.0.1:80008000/payouts/
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
-# POST https://bensco-collector.onrender.com8000/payouts/request
+# POST http://127.0.0.1:80008000/payouts/request
 # Authorization: Bearer {{jwt_token}}
 # Content-Type: application/json
 
@@ -193,14 +193,14 @@ Content-Type: application/json
 
 # ###
 
-# PATCH https://bensco-collector.onrender.com8000/payouts/1/approve
+# PATCH http://127.0.0.1:80008000/payouts/1/approve
 # Authorization: Bearer {{jwt_token}}
 
 # {}
 
 # ###
 
-# PATCH https://bensco-collector.onrender.com8000/payouts/1/pays
+# PATCH http://127.0.0.1:80008000/payouts/1/pays
 # Authorization: Bearer {{jwt_token}}
 
 # {}
@@ -208,15 +208,15 @@ Content-Type: application/json
 # ###
 # # REPORTS MODULE
 
-# GET https://bensco-collector.onrender.com8000/reports/collectors
+# GET http://127.0.0.1:80008000/reports/collectors
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
-# GET https://bensco-collector.onrender.com8000/reports/clients
+# GET http://127.0.0.1:80008000/reports/clients
 # Authorization: Bearer {{jwt_token}}
 
 # ###
 
-# GET https://bensco-collector.onrender.com8000/reports/contributions?date=2025-07-01
+# GET http://127.0.0.1:80008000/reports/contributions?date=2025-07-01
 # Authorization: Bearer {{jwt_token}}

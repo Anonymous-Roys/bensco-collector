@@ -6,6 +6,30 @@ from rest_framework.response import Response
 from .models import PayoutModel
 from django.utils import timezone
 from django.db.models import Count, Sum, Q
+from rest_framework.pagination import PageNumberPagination
+
+class PayoutsPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+    
+    def get_paginated_response(self, data):
+        return Response({
+            'count': self.page.paginator.count,
+            'next': self.get_next_link(),
+            'previous': self.get_previous_link(),
+            'total_pages': self.page.paginator.num_pages,
+            'current_page': self.page.number,
+            'page_size': self.page_size,
+            'results': data
+        })
+
+
+class SearchPagination(PageNumberPagination):
+    """Pagination for search results - allows larger page sizes for search"""
+    page_size = 50  # Larger page size for search results
+    page_size_query_param = 'page_size'
+    max_page_size = 200
 
 # Create your views here.
 @api_view(['POST'])
@@ -24,26 +48,56 @@ def list_payouts(request):
     if request.user.role != 'admin':
         return Response({'detail': 'Only admins can view all payouts.'}, status=403)
     
-    payouts = PayoutModel.objects.all()
+    search = request.query_params.get('search', '').strip()
+    status_filter = request.query_params.get('status')
+    date_filter = request.query_params.get('date')
+    amount_filter = request.query_params.get('amount')
+    
+    # Base queryset
+    payouts = PayoutModel.objects.select_related('client', 'requested_by').all()
+    
+    # Apply search across ALL database records (not just current page)
+    if search:
+        # Search in client name, collector name, status, and amount
+        search_query = Q(client__name__icontains=search) | \
+                      Q(requested_by__username__icontains=search) | \
+                      Q(status__icontains=search) | \
+                      Q(requested_amount__icontains=search) | \
+                      Q(net_payout__icontains=search)
+        payouts = payouts.filter(search_query)
+        # Use search pagination for better search experience
+        paginator = SearchPagination()
+    else:
+        # Use regular pagination for normal listing
+        paginator = PayoutsPagination()
     
     # Apply filters
-    status_filter = request.query_params.get('status')
-    if status_filter:
+    if status_filter and status_filter != 'all':
         payouts = payouts.filter(status=status_filter)
     
-    client_filter = request.query_params.get('client')
-    if client_filter:
-        payouts = payouts.filter(client__name__icontains=client_filter)
+    if date_filter:
+        if date_filter == 'today':
+            payouts = payouts.filter(requested_on__date=timezone.now().date())
+        elif date_filter == 'week':
+            week_start = timezone.now().date() - timezone.timedelta(days=timezone.now().date().weekday())
+            payouts = payouts.filter(requested_on__date__gte=week_start)
+        elif date_filter == 'month':
+            month_start = timezone.now().date().replace(day=1)
+            payouts = payouts.filter(requested_on__date__gte=month_start)
     
-    collector_filter = request.query_params.get('collector')
-    if collector_filter:
-        payouts = payouts.filter(requested_by__username__icontains=collector_filter)
+    if amount_filter:
+        try:
+            amount_value = float(amount_filter)
+            payouts = payouts.filter(requested_amount=amount_value)
+        except ValueError:
+            pass  # Invalid amount filter, ignore
     
     # Order by most recent first
     payouts = payouts.order_by('-requested_on')
     
-    serializer = PayoutModelSerializer(payouts, many=True)
-    return Response(serializer.data, status=200)
+    paginated_payouts = paginator.paginate_queryset(payouts, request)
+    serializer = PayoutModelSerializer(paginated_payouts, many=True)
+    return paginator.get_paginated_response(serializer.data)
 
 
 @api_view(['POST'])

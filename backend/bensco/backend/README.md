@@ -37,7 +37,7 @@ bensco_susu_backend/
 - open a second terminal,cd into the dir containing the docker file and hit ``docker exec -it django-container /bin/bash``
 - Enter ``python manage.py makemigrations``
 - Enter ``python manage.py migrate``
-- Visit ``https://bensco-collector.onrender.com/``
+- Visit ``http://127.0.0.1:8000/``
 
 
 Your backend dev server should be working successfully

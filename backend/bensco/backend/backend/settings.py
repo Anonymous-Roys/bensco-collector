@@ -102,20 +102,17 @@ DATABASES = {
     #         'MIN_CONNS': 5,
     #     }
     # )
-     "default": dj_database_url.config(
-        default="postgresql://postgres:11001@db:5432/bsl_db"  # docker compose db service
-    )
-    # 'default': {
-
-    #     'ENGINE': 'django.db.backends.postgresql',
-    #     'NAME': 'bsl_db',
-    #     'USER': 'postgres',
-    #     'PASSWORD': '11001',
-    #     # 'HOST': 'db',
-    #     'HOST': 'localhost',
-        
-    #     'PORT': '5432',
-    # } 
+    #  "default": dj_database_url.config(
+    #     default="postgresql://postgres:11001@db:5432/bsl_db"  # docker compose db service
+    # )
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'bsl_db_local',
+        'USER': 'postgres',
+        'PASSWORD': '11001',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
 }
 
 
@@ -170,7 +167,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 1000
+    'PAGE_SIZE': 10
 }
 
 SIMPLE_JWT = {
@@ -205,8 +202,8 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Allowed origins for production (uncomment and modify as needed)
 CORS_ALLOWED_ORIGINS = [
-    "https://bensco-collector.onrender.com8081",
-    "https://bensco-collector.onrender.com3000",
+    "http://127.0.0.1:80008081",
+    "http://127.0.0.1:80003000",
     "http://127.0.0.1:8081",
     "http://127.0.0.1:3000",
     "https://bensco-susu-admin.vercel.app",   # your Vercel frontend

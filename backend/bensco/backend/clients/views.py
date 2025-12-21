@@ -6,9 +6,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .serializers import ClientModelSerializer, AddressModelSerializer, ClientUpdateSerializer
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from rest_framework.pagination import PageNumberPagination
 from users.models import UserModel
+from core.pagination import ClientsPagination, SearchPagination
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -65,25 +66,40 @@ def get_clients_view(request):
     status_filter = request.query_params.get('status')  # active/inactive
     amount_filter = request.query_params.get('amount')  # fixed/variable
 
+    # Base queryset with optimized select_related and prefetch_related
+    base_queryset = ClientModel.objects.select_related(
+        'collector', 'address'
+    ).prefetch_related(
+        Prefetch('savings_cycles', queryset=None),
+        Prefetch('payoutmodel_set', queryset=None)
+    )
+
     # Admin sees all, Collector sees their clients + shared clients (collector=None)
     if request.user.role == 'admin':
-        clients = ClientModel.objects.all()
+        clients = base_queryset.all()
         if collector_id:
             clients = clients.filter(collector__id=collector_id)
     elif request.user.role == 'collector':
-        clients = ClientModel.objects.filter(
+        clients = base_queryset.filter(
             Q(collector=request.user) | Q(collector__isnull=True)
         )
     else:
         return Response({'detail': 'Unauthorized role.'}, status=403)
 
-    # Apply search (name, phone, or unique_code)
+    # Apply search across ALL database records (not just current page)
     if search:
-        clients = clients.filter(
+        # Create a separate search queryset that searches the entire database
+        search_clients = clients.filter(
             Q(name__icontains=search) |
             Q(phone_number__icontains=search) |
             Q(unique_code__icontains=search)
         )
+        clients = search_clients
+        # Use search pagination for better search experience
+        paginator = SearchPagination()
+    else:
+        # Use regular pagination for normal listing
+        paginator = ClientsPagination()
 
     # Apply filters
     if amount_filter:
@@ -95,7 +111,6 @@ def get_clients_view(request):
     # Order by creation date (newest first)
     clients = clients.order_by('-created_at')
 
-    paginator = PageNumberPagination()
     paginated_clients = paginator.paginate_queryset(clients, request)
     serializer = ClientModelSerializer(paginated_clients, many=True)
     return paginator.get_paginated_response(serializer.data)
@@ -183,6 +198,63 @@ def get_available_collectors(request):
     
     collectors = UserModel.objects.filter(role='collector', is_active=True).values('id', 'username', 'email', 'assigned_zone')
     return Response(collectors, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def search_clients_view(request):
+    """Dedicated search endpoint that searches entire database"""
+    search = request.query_params.get('q', '').strip()
+    collector_id = request.query_params.get('collector')
+    amount_filter = request.query_params.get('amount')  # fixed/variable
+    
+    if not search:
+        return Response({'detail': 'Search query is required.'}, status=400)
+    
+    # Base queryset with optimizations
+    base_queryset = ClientModel.objects.select_related(
+        'collector', 'address'
+    ).only(
+        'id', 'name', 'phone_number', 'unique_code', 'is_fixed', 
+        'amount_daily', 'created_at', 'collector__username', 'address__label'
+    )
+    
+    # Permission-based filtering
+    if request.user.role == 'admin':
+        clients = base_queryset.all()
+        if collector_id:
+            clients = clients.filter(collector__id=collector_id)
+    elif request.user.role == 'collector':
+        clients = base_queryset.filter(
+            Q(collector=request.user) | Q(collector__isnull=True)
+        )
+    else:
+        return Response({'detail': 'Unauthorized role.'}, status=403)
+    
+    # Search across multiple fields
+    search_query = Q(name__icontains=search) | Q(phone_number__icontains=search) | Q(unique_code__icontains=search)
+    
+    # Add collector name search for admins
+    if request.user.role == 'admin':
+        search_query |= Q(collector__username__icontains=search)
+    
+    clients = clients.filter(search_query)
+    
+    # Apply filters
+    if amount_filter:
+        if amount_filter == 'fixed':
+            clients = clients.filter(is_fixed=True)
+        elif amount_filter == 'variable':
+            clients = clients.filter(is_fixed=False)
+    
+    # Order by relevance (exact matches first, then partial matches)
+    clients = clients.order_by('-created_at')
+    
+    # Use search pagination
+    paginator = SearchPagination()
+    paginated_clients = paginator.paginate_queryset(clients, request)
+    serializer = ClientModelSerializer(paginated_clients, many=True)
+    
+    return paginator.get_paginated_response(serializer.data)
 
 # Legacy endpoint for backward compatibility
 @api_view(['GET', 'PATCH'])

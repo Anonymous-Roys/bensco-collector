@@ -78,19 +78,15 @@ class ClientModel(models.Model):
             # Start with initial balance (set once during creation)
             current_balance = Decimal(str(self.initial_balance or 0))
             
-            # Add ALL contributions from all cycles (no commission deduction)
-            all_cycles = self.savings_cycles.all()
+            # Optimized: Get total contributions in a single query
+            from contributions.models import ContributionModel
+            total_contributions = ContributionModel.objects.filter(
+                savings_cycle__client=self
+            ).aggregate(total=Sum('amount'))['total'] or 0
             
-            for cycle in all_cycles:
-                # Get total contributions for this cycle
-                cycle_contributions = cycle.contributions.aggregate(
-                    total=Sum('amount')
-                )['total'] or 0
-                
-                # Add full contribution amount (no commission deducted)
-                current_balance += Decimal(str(cycle_contributions or 0))
+            current_balance += Decimal(str(total_contributions or 0))
             
-            # Subtract all paid payouts (full requested amount, not just net payout)
+            # Optimized: Get total payouts in a single query
             from payouts.models import PayoutModel
             total_paid_out = PayoutModel.objects.filter(
                 client=self,
@@ -129,6 +125,18 @@ class ClientModel(models.Model):
 
     def __str__(self):
         return self.name
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['name']),
+            models.Index(fields=['phone_number']),
+            models.Index(fields=['unique_code']),
+            models.Index(fields=['collector']),
+            models.Index(fields=['is_fixed']),
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['collector', '-created_at']),
+        ]
+        ordering = ['-created_at']
     
     def save(self, *args, **kwargs):
         if not self.unique_code:

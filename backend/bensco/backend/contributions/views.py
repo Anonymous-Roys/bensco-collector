@@ -6,12 +6,38 @@ from django.db.models import Sum, Count
 from django.utils import timezone
 from datetime import timedelta
 from collections import defaultdict
+from django.db.models import Q
+from rest_framework.pagination import PageNumberPagination
 
 from .models import ContributionModel
 from .serializers import ContributionModelSerializer
 from clients.models import ClientModel
 from notifications.models import Notification
 from users.models import UserModel
+
+
+class ContributionsPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+    
+    def get_paginated_response(self, data):
+        return Response({
+            'count': self.page.paginator.count,
+            'next': self.get_next_link(),
+            'previous': self.get_previous_link(),
+            'total_pages': self.page.paginator.num_pages,
+            'current_page': self.page.number,
+            'page_size': self.page_size,
+            'results': data
+        })
+
+
+class SearchPagination(PageNumberPagination):
+    """Pagination for search results - allows larger page sizes for search"""
+    page_size = 50  # Larger page size for search results
+    page_size_query_param = 'page_size'
+    max_page_size = 200
 
 
 @api_view(['POST'])
@@ -65,14 +91,63 @@ def create_bulk_contributions(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_contributions(request):
+    search = request.query_params.get('search', '').strip()
+    date_filter = request.query_params.get('date')
+    amount_filter = request.query_params.get('amount')
+    
+    # Base queryset
     if request.user.role == 'admin':
-        contributions = ContributionModel.objects.all().order_by('-created_at')
+        contributions = ContributionModel.objects.select_related('client', 'collector').all()
     else:
         # Collectors only see their own contributions
-        contributions = ContributionModel.objects.filter(collector=request.user).order_by('-created_at')
+        contributions = ContributionModel.objects.select_related('client', 'collector').filter(collector=request.user)
     
-    serializer = ContributionModelSerializer(contributions, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    # Apply search across ALL database records (not just current page)
+    if search:
+        # Search in client name, collector name, amount, and note
+        search_query = Q(client__name__icontains=search) | \
+                      Q(collector__username__icontains=search) | \
+                      Q(amount__icontains=search) | \
+                      Q(note__icontains=search)
+        contributions = contributions.filter(search_query)
+        # Use search pagination for better search experience
+        paginator = SearchPagination()
+    else:
+        # Use regular pagination for normal listing
+        paginator = ContributionsPagination()
+    
+    # Apply filters
+    if date_filter:
+        if date_filter == 'today':
+            contributions = contributions.filter(date=timezone.now().date())
+        elif date_filter == 'week':
+            week_start = timezone.now().date() - timedelta(days=timezone.now().date().weekday())
+            contributions = contributions.filter(date__gte=week_start)
+        elif date_filter == 'month':
+            month_start = timezone.now().date().replace(day=1)
+            contributions = contributions.filter(date__gte=month_start)
+    
+    if amount_filter:
+        if amount_filter == 'low':
+            contributions = contributions.filter(amount__lt=100)
+        elif amount_filter == 'medium':
+            contributions = contributions.filter(amount__gte=100, amount__lte=500)
+        elif amount_filter == 'high':
+            contributions = contributions.filter(amount__gt=500)
+        else:
+            # Try to parse as specific amount
+            try:
+                amount_value = float(amount_filter)
+                contributions = contributions.filter(amount=amount_value)
+            except ValueError:
+                pass  # Invalid amount filter, ignore
+    
+    # Order by creation date (newest first)
+    contributions = contributions.order_by('-created_at')
+    
+    paginated_contributions = paginator.paginate_queryset(contributions, request)
+    serializer = ContributionModelSerializer(paginated_contributions, many=True)
+    return paginator.get_paginated_response(serializer.data)
 
 
 
