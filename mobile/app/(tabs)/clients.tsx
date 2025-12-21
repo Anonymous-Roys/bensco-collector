@@ -43,7 +43,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
   
   const fetchAddresses = async () => {
     try {
-      const response = await fetch('https://bensco-collector.onrender.com/clients/addresses/', {
+      const response = await fetch('http://127.0.0.1:8000/clients/addresses/', {
         headers: {
           'Authorization': `Bearer ${await AsyncStorage.getItem('auth_token')}`,
         },
@@ -101,7 +101,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
       
       // Create address if custom address is provided
       if (showCustomAddress && customAddress.trim()) {
-        const addressResponse = await fetch('https://bensco-collector.onrender.com/clients/addresses/create/', {
+        const addressResponse = await fetch('http://127.0.0.1:8000/clients/addresses/create/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
         collector: 'all',
       };
       
-      const response = await fetch('https://bensco-collector.onrender.com/clients/create/', {
+      const response = await fetch('http://127.0.0.1:8000/clients/create/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

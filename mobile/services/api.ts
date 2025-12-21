@@ -182,8 +182,8 @@ export const contributionAPI = {
   // Get all contributions (collector-specific for mobile app)
   getContributions: async (): Promise<Contribution[]> => {
     try {
-      // Mobile app gets collector-specific contributions with large page size
-      const response: AxiosResponse<ContributionListResponse> = await api.get(`${API_CONFIG.CONTRIBUTIONS.LIST}?page_size=1000`);
+      // Mobile app gets collector-specific contributions with pagination
+      const response: AxiosResponse<ContributionListResponse> = await api.get(`${API_CONFIG.CONTRIBUTIONS.LIST}?page_size=10`);
       const data = response.data as any;
       if (Array.isArray(data)) return data;
       if (data && Array.isArray(data.results)) return data.results;

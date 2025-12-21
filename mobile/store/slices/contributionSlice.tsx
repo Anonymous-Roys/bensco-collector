@@ -71,10 +71,20 @@ const contributionSlice = createSlice({
       })
       .addCase(fetchContributions.fulfilled, (state, action: PayloadAction<ContributionListResponse>) => {
         state.loading = false;
-        state.contributions = action.payload.results;
-        state.totalCount = action.payload.count;
-        state.nextPage = action.payload.next;
-        state.previousPage = action.payload.previous;
+        const payload = action.payload;
+        if (Array.isArray(payload)) {
+          // Legacy array response
+          state.contributions = payload;
+          state.totalCount = payload.length;
+          state.nextPage = null;
+          state.previousPage = null;
+        } else {
+          // Paginated response
+          state.contributions = payload.results;
+          state.totalCount = payload.count;
+          state.nextPage = payload.next;
+          state.previousPage = payload.previous;
+        }
       })
       .addCase(fetchContributions.rejected, (state, action) => {
         state.loading = false;
