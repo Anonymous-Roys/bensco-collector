@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -43,7 +43,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
   
   const fetchAddresses = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/clients/addresses/', {
+      const response = await fetch('https://bensco-collector1.onrender.com/clients/addresses/', {
         headers: {
           'Authorization': `Bearer ${await AsyncStorage.getItem('auth_token')}`,
         },
@@ -101,7 +101,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
       
       // Create address if custom address is provided
       if (showCustomAddress && customAddress.trim()) {
-        const addressResponse = await fetch('http://127.0.0.1:8000/clients/addresses/create/', {
+        const addressResponse = await fetch('https://bensco-collector1.onrender.com/clients/addresses/create/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
         collector: 'all',
       };
       
-      const response = await fetch('http://127.0.0.1:8000/clients/create/', {
+      const response = await fetch('https://bensco-collector1.onrender.com/clients/create/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -408,6 +408,7 @@ export default function ClientsScreen() {
   const { loading: contributionLoading } = useSelector((state: RootState) => state.contributions);
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'active' | 'pending' | 'complete'>('all');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -418,10 +419,19 @@ export default function ClientsScreen() {
   const [sortBy, setSortBy] = useState<'name' | 'status' | 'amount' | 'date'>('name');
   const [showCreateClientModal, setShowCreateClientModal] = useState(false);
 
-  // Fetch clients on component mount
+  // Debounce search query
   useEffect(() => {
-    dispatch(fetchClients());
-  }, [dispatch]);
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300); // 300ms delay
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch clients on component mount and when debounced search changes
+  useEffect(() => {
+    dispatch(fetchClients({ search: debouncedSearchQuery.trim() || undefined }));
+  }, [dispatch, debouncedSearchQuery]);
 
   // Clear error when component unmounts
   useEffect(() => {
@@ -430,14 +440,12 @@ export default function ClientsScreen() {
     };
   }, [dispatch]);
 
-  // Filter and search clients
-  const filteredClients = clients
+  // Sort clients (filtering is now done server-side)
+  const sortedClients = clients
     .filter(client => {
-      const matchesSearch = client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          client.phone_number.includes(searchQuery);
       // For now, we'll show all clients as active since the backend doesn't provide status
       const matchesFilter = selectedFilter === 'all' || selectedFilter === 'active';
-      return matchesSearch && matchesFilter;
+      return matchesFilter;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -499,7 +507,7 @@ export default function ClientsScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchClients());
+      await dispatch(fetchClients({ search: debouncedSearchQuery.trim() || undefined }));
     } catch (error) {
       console.error('Error refreshing clients:', error);
     } finally {
@@ -620,7 +628,7 @@ export default function ClientsScreen() {
 
       {/* Client List */}
       <FlatList
-        data={filteredClients}
+        data={sortedClients}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <ClientCard 

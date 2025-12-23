@@ -133,11 +133,24 @@ export const authAPI = {
 
 // Client API methods
 export const clientAPI = {
-  // Get all clients (handle pagination)
-  getClients: async (): Promise<ClientListResponse> => {
+  // Get all clients (handle pagination and search)
+  getClients: async (params?: {
+    search?: string;
+    page_size?: number;
+  }): Promise<ClientListResponse> => {
     try {
-      // Add large page_size to get all clients at once
-      const response: AxiosResponse<ClientListResponse> = await api.get(`${API_CONFIG.CLIENTS.LIST}?page_size=1000`);
+      const url = new URL(`${API_CONFIG.BASE_URL}${API_CONFIG.CLIENTS.LIST}`);
+      
+      // Add search parameter if provided
+      if (params?.search) {
+        url.searchParams.set('search', params.search);
+      }
+      
+      // Use large page_size to get all clients at once, or use provided page_size
+      const pageSize = params?.page_size || 1000;
+      url.searchParams.set('page_size', pageSize.toString());
+      
+      const response: AxiosResponse<ClientListResponse> = await api.get(url.toString());
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {

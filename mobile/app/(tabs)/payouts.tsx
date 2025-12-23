@@ -27,10 +27,25 @@ const PayoutsScreen = () => {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedClient, setSelectedClient] = useState<string>('all');
+  const [displayedPayouts, setDisplayedPayouts] = useState<PayoutRequest[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [hasNextPage, setHasNextPage] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     loadPayouts();
   }, []);
+
+  // Update displayed payouts when data or filters change
+  useEffect(() => {
+    const filtered = getFilteredPayouts();
+    const firstPageData = filtered.slice(0, ITEMS_PER_PAGE);
+    setDisplayedPayouts(firstPageData);
+    setHasNextPage(filtered.length > ITEMS_PER_PAGE);
+    setCurrentPage(1);
+  }, [payouts, selectedStatus, selectedClient]);
 
   const loadPayouts = async () => {
     try {
@@ -46,6 +61,32 @@ const PayoutsScreen = () => {
     setRefreshing(true);
     await loadPayouts();
     setRefreshing(false);
+    // Pagination will be reset by the useEffect when payouts data changes
+  };
+
+  const loadMore = async () => {
+    if (!hasNextPage || loadingMore) return;
+
+    try {
+      setLoadingMore(true);
+
+      // Simulate async loading for better UX
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      const filtered = getFilteredPayouts();
+      const nextPage = currentPage + 1;
+      const startIndex = 0;
+      const endIndex = nextPage * ITEMS_PER_PAGE;
+
+      const newData = filtered.slice(startIndex, endIndex);
+      setDisplayedPayouts(newData);
+      setHasNextPage(endIndex < filtered.length);
+      setCurrentPage(nextPage);
+    } catch (error) {
+      console.error('Failed to load more payouts:', error);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const getStatusIcon = (status: string) => {
@@ -338,7 +379,7 @@ const PayoutsScreen = () => {
         }
         showsVerticalScrollIndicator={false}
       >
-        {filteredPayouts.length === 0 ? (
+        {displayedPayouts.length === 0 ? (
           <View style={styles.emptyState}>
             <MaterialCommunityIcons name="cash-off" size={64} color={LogoColors.text.light} />
             <Text style={styles.emptyTitle}>
@@ -352,9 +393,29 @@ const PayoutsScreen = () => {
             </Text>
           </View>
         ) : (
-          [...filteredPayouts]
-            .sort((a, b) => new Date(b.requested_on).getTime() - new Date(a.requested_on).getTime())
-            .map(renderPayoutCard)
+          <>
+            {[...displayedPayouts]
+              .sort((a, b) => new Date(b.requested_on).getTime() - new Date(a.requested_on).getTime())
+              .map(renderPayoutCard)}
+            
+            {/* Load More Controls */}
+            {loadingMore ? (
+              <View style={styles.loadingMore}>
+                <ActivityIndicator size="small" color={LogoColors.primary.red} />
+                <Text style={styles.loadingMoreText}>Loading more...</Text>
+              </View>
+            ) : hasNextPage ? (
+              <TouchableOpacity style={styles.loadMoreButton} onPress={loadMore}>
+                <Text style={styles.loadMoreText}>Load More Payouts</Text>
+              </TouchableOpacity>
+            ) : displayedPayouts.length > 0 ? (
+              <View style={styles.endOfList}>
+                <Text style={styles.endOfListText}>
+                  Showing {displayedPayouts.length} of {filteredPayouts.length} payouts
+                </Text>
+              </View>
+            ) : null}
+          </>
         )}
       </ScrollView>
       {renderFilterModal()}
@@ -642,6 +703,40 @@ const styles = StyleSheet.create({
     color: LogoColors.background.surface,
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingMore: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  loadingMoreText: {
+    fontSize: 14,
+    color: LogoColors.text.secondary,
+  },
+  loadMoreButton: {
+    backgroundColor: LogoColors.primary.red,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginVertical: 16,
+    alignSelf: 'center',
+  },
+  loadMoreText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  endOfList: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  endOfListText: {
+    fontSize: 12,
+    color: LogoColors.text.secondary,
+    textAlign: 'center',
   },
 });
 

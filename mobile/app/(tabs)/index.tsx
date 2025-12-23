@@ -165,7 +165,7 @@ export default function CollectorHome() {
   };
 
   const handleRecordPress = () => {
-    router.push('/collect');
+    router.push('/clients');
   };
 
   const handleHistoryPress = () => {

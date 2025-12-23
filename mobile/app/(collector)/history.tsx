@@ -24,8 +24,14 @@ export default function CollectionHistory() {
   const { clientId } = useLocalSearchParams<{ clientId?: string }>();
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [groupedData, setGroupedData] = useState<GroupedContribution[]>([]);
+  const [allGroupedData, setAllGroupedData] = useState<GroupedContribution[]>([]);
+  const [displayedData, setDisplayedData] = useState<GroupedContribution[]>([]);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [hasNextPage, setHasNextPage] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState<boolean>(false);
+
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     let mounted = true;
@@ -35,7 +41,15 @@ export default function CollectionHistory() {
         setError(null);
         const data = await contributionAPI.getGroupedContributions();
         if (!mounted) return;
-        setGroupedData(data || []);
+        
+        const groupedData = Array.isArray(data) ? data : [];
+        setAllGroupedData(groupedData);
+        
+        // Load first page
+        const firstPageData = groupedData.slice(0, ITEMS_PER_PAGE);
+        setDisplayedData(firstPageData);
+        setHasNextPage(groupedData.length > ITEMS_PER_PAGE);
+        setCurrentPage(1);
       } catch (e: any) {
         if (!mounted) return;
         setError(e?.message || 'Failed to load history');
@@ -47,13 +61,37 @@ export default function CollectionHistory() {
     return () => { mounted = false; };
   }, []);
 
+  const loadMore = async () => {
+    if (!hasNextPage || loadingMore) return;
+    
+    try {
+      setLoadingMore(true);
+      
+      // Simulate async loading for better UX
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const nextPage = currentPage + 1;
+      const startIndex = 0;
+      const endIndex = nextPage * ITEMS_PER_PAGE;
+      
+      const newData = allGroupedData.slice(startIndex, endIndex);
+      setDisplayedData(newData);
+      setHasNextPage(endIndex < allGroupedData.length);
+      setCurrentPage(nextPage);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to load more history');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const totalCollected = useMemo(() => {
-    return groupedData.reduce((sum, day) => sum + day.total_amount, 0);
-  }, [groupedData]);
+    return allGroupedData.reduce((sum, day) => sum + day.total_amount, 0);
+  }, [allGroupedData]);
 
   const totalCount = useMemo(() => {
-    return groupedData.reduce((sum, day) => sum + day.count, 0);
-  }, [groupedData]);
+    return allGroupedData.reduce((sum, day) => sum + day.count, 0);
+  }, [allGroupedData]);
 
   const toggleDateExpansion = (date: string) => {
     const newExpanded = new Set(expandedDates);
@@ -174,10 +212,24 @@ export default function CollectionHistory() {
       )}
       {/* Collection List */}
       <FlatList
-        data={groupedData}
+        data={displayedData}
         renderItem={renderDayFolder}
         keyExtractor={item => item.date}
         contentContainerStyle={styles.listContainer}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.loadingMore}>
+              <ActivityIndicator size="small" color={LogoColors.primary.red} />
+              <Text style={styles.loadingMoreText}>Loading more...</Text>
+            </View>
+          ) : hasNextPage ? (
+            <TouchableOpacity style={styles.loadMoreButton} onPress={loadMore}>
+              <Text style={styles.loadMoreText}>Load More</Text>
+            </TouchableOpacity>
+          ) : null
+        }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <MaterialCommunityIcons 
@@ -417,5 +469,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: LogoColors.text.primary,
+  },
+  
+  loadingMore: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 8,
+  },
+  
+  loadingMoreText: {
+    fontSize: 14,
+    color: LogoColors.text.secondary,
+  },
+  
+  loadMoreButton: {
+    backgroundColor: LogoColors.primary.red,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginVertical: 16,
+    alignSelf: 'center',
+  },
+  
+  loadMoreText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

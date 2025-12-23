@@ -202,8 +202,8 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Allowed origins for production (uncomment and modify as needed)
 CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1:80008081",
-    "http://127.0.0.1:80003000",
+    "https://bensco-collector1.onrender.com8081",
+    "https://bensco-collector1.onrender.com3000",
     "http://127.0.0.1:8081",
     "http://127.0.0.1:3000",
     "https://bensco-susu-admin.vercel.app",   # your Vercel frontend

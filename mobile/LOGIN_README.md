@@ -16,7 +16,7 @@ The login system has been updated to use real API integration with the Django ba
 ### Base URL
 The API base URL is configured in `constants/api.ts`:
 ```typescript
-BASE_URL: 'http://127.0.0.1:8000', // Development
+BASE_URL: 'https://bensco-collector1.onrender.com', // Development
 // BASE_URL: 'https://your-production-domain.com', // Production
 ```
 

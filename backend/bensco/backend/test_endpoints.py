@@ -2,7 +2,7 @@ import requests
 import json
 import time
 
-BASE_URL = 'http://127.0.0.1:8000'
+BASE_URL = 'https://bensco-collector1.onrender.com'
 
 def test_endpoint(url, description):
     print(f"\n=== {description} ===")

@@ -5,9 +5,9 @@ import { clientAPI } from '@/services/api';
 // Async thunks
 export const fetchClients = createAsyncThunk(
   'clients/fetchClients',
-  async (_, { rejectWithValue }) => {
+  async (params: { search?: string } | undefined, { rejectWithValue }) => {
     try {
-      const response = await clientAPI.getClients();
+      const response = await clientAPI.getClients(params);
       return response;
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch clients');
