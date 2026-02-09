@@ -78,12 +78,21 @@ class ClientModel(models.Model):
             # Start with initial balance (set once during creation)
             current_balance = Decimal(str(self.initial_balance or 0))
             
-            # Optimized: Get total contributions in a single query
+            # Get total contributions - try both methods for compatibility
             from contributions.models import ContributionModel
-            total_contributions = ContributionModel.objects.filter(
+            
+            # Method 1: Contributions linked through savings cycles
+            cycle_contributions = ContributionModel.objects.filter(
                 savings_cycle__client=self
             ).aggregate(total=Sum('amount'))['total'] or 0
             
+            # Method 2: Direct contributions to client (fallback)
+            direct_contributions = ContributionModel.objects.filter(
+                client=self
+            ).aggregate(total=Sum('amount'))['total'] or 0
+            
+            # Use the higher value (in case some contributions aren't linked to cycles)
+            total_contributions = max(cycle_contributions, direct_contributions)
             current_balance += Decimal(str(total_contributions or 0))
             
             # Optimized: Get total payouts in a single query
