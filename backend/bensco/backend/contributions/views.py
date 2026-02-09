@@ -6,7 +6,7 @@ from django.db.models import Sum, Count
 from django.utils import timezone
 from datetime import timedelta
 from collections import defaultdict
-
+from rest_framework.pagination import PageNumberPagination
 from .models import ContributionModel
 from .serializers import ContributionModelSerializer
 from clients.models import ClientModel
@@ -66,13 +66,20 @@ def create_bulk_contributions(request):
 @permission_classes([IsAuthenticated])
 def list_contributions(request):
     if request.user.role == 'admin':
-        contributions = ContributionModel.objects.all().order_by('-created_at')
+        queryset = ContributionModel.objects.all().order_by('-created_at')
     else:
         # Collectors only see their own contributions
-        contributions = ContributionModel.objects.filter(collector=request.user).order_by('-created_at')
-    
-    serializer = ContributionModelSerializer(contributions, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+        queryset = ContributionModel.objects.filter(
+            collector=request.user
+        ).order_by('-created_at')
+
+    paginator = PageNumberPagination()
+    paginator.page_size = 50  # 👈 limit here
+
+    page = paginator.paginate_queryset(queryset, request)
+    serializer = ContributionModelSerializer(page, many=True)
+
+    return paginator.get_paginated_response(serializer.data)
 
 
 
