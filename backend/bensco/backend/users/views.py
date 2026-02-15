@@ -3,7 +3,7 @@ from .serializers import CustomTokenObtainPairSerializer, UserModelSerializer, C
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions  import IsAuthenticated
-from django.db.models import Q
+from django.db.models import Q, Sum, Count
 from users.models import UserModel
 from .models import PasswordResetRequestModel
 from django.core.mail import send_mail
@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Count
 from django.utils import timezone
 from datetime import timedelta
+from core.pagination import SearchPagination
 
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -269,3 +270,93 @@ def change_password(request, user_id):
         
     except Exception as e:
         return Response({'detail': f'Error changing password: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_collectors_list(request):
+    """Get paginated list of collectors with their collection stats"""
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can view collectors list.'}, status=403)
+    
+    search = request.query_params.get('search', '').strip()
+    sort_by = request.query_params.get('sort_by', '-created_at')
+    
+    # Base queryset
+    collectors = UserModel.objects.filter(role='collector').select_related()
+    
+    # Apply search
+    if search:
+        collectors = collectors.filter(
+            Q(username__icontains=search) |
+            Q(email__icontains=search) |
+            Q(assigned_zone__icontains=search)
+        )
+    
+    # Annotate with collection stats
+    from contributions.models import ContributionModel
+    today = timezone.now().date()
+    
+    collectors = collectors.annotate(
+        total_collections=Sum('contributionmodel__amount'),
+        today_collections=Sum(
+            'contributionmodel__amount',
+            filter=Q(contributionmodel__date=today)
+        ),
+        collection_count=Count('contributionmodel')
+    )
+    
+    # Apply sorting
+    valid_sort_fields = ['username', '-username', 'created_at', '-created_at', 'total_collections', '-total_collections']
+    if sort_by in valid_sort_fields:
+        collectors = collectors.order_by(sort_by)
+    else:
+        collectors = collectors.order_by('-created_at')
+    
+    # Pagination
+    paginator = SearchPagination()
+    paginated_collectors = paginator.paginate_queryset(collectors, request)
+    
+    # Format response
+    collector_data = []
+    for collector in paginated_collectors:
+        collector_data.append({
+            'id': str(collector.id),
+            'username': collector.username,
+            'email': collector.email,
+            'assigned_zone': collector.assigned_zone,
+            'is_active': collector.is_active,
+            'created_at': collector.created_at.isoformat(),
+            'total_collections': float(collector.total_collections or 0),
+            'today_collections': float(collector.today_collections or 0),
+            'collection_count': collector.collection_count or 0
+        })
+    
+    return paginator.get_paginated_response(collector_data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_collector_contributions(request, collector_id):
+    """Get paginated contributions for a specific collector"""
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can view collector contributions.'}, status=403)
+    
+    try:
+        collector = get_object_or_404(UserModel, id=collector_id, role='collector')
+        
+        from contributions.models import ContributionModel
+        from contributions.serializers import ContributionModelSerializer
+        
+        # Get contributions
+        contributions = ContributionModel.objects.filter(
+            collector=collector
+        ).select_related('client', 'collector').order_by('-date', '-created_at')
+        
+        # Pagination
+        paginator = SearchPagination()
+        paginated_contributions = paginator.paginate_queryset(contributions, request)
+        serializer = ContributionModelSerializer(paginated_contributions, many=True)
+        
+        return paginator.get_paginated_response(serializer.data)
+        
+    except Exception as e:
+        return Response({'detail': f'Error fetching contributions: {str(e)}'}, status=400)
