@@ -6,10 +6,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .serializers import ClientModelSerializer, AddressModelSerializer, ClientUpdateSerializer
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Prefetch
+from django.db.models import Q, Prefetch, Sum, Count
 from rest_framework.pagination import PageNumberPagination
 from users.models import UserModel
 from core.pagination import ClientsPagination, SearchPagination
+from contributions.models import ContributionModel
+from payouts.models import PayoutModel
+from contributions.serializers import ContributionModelSerializer
+from payouts.serializers import PayoutModelSerializer
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -65,6 +69,12 @@ def get_clients_view(request):
     collector_id = request.query_params.get('collector')
     status_filter = request.query_params.get('status')  # active/inactive
     amount_filter = request.query_params.get('amount')  # fixed/variable
+    balance_min = request.query_params.get('balance_min')
+    balance_max = request.query_params.get('balance_max')
+    daily_amount_min = request.query_params.get('daily_amount_min')
+    daily_amount_max = request.query_params.get('daily_amount_max')
+    sort_by = request.query_params.get('sort_by', '-created_at')
+    address_filter = request.query_params.get('address')
 
     # Base queryset with optimized select_related and prefetch_related
     base_queryset = ClientModel.objects.select_related(
@@ -78,7 +88,10 @@ def get_clients_view(request):
     if request.user.role == 'admin':
         clients = base_queryset.all()
         if collector_id:
-            clients = clients.filter(collector__id=collector_id)
+            if collector_id == 'unassigned':
+                clients = clients.filter(collector__isnull=True)
+            else:
+                clients = clients.filter(collector__id=collector_id)
     elif request.user.role == 'collector':
         clients = base_queryset.filter(
             Q(collector=request.user) | Q(collector__isnull=True)
@@ -92,7 +105,9 @@ def get_clients_view(request):
         search_clients = clients.filter(
             Q(name__icontains=search) |
             Q(phone_number__icontains=search) |
-            Q(unique_code__icontains=search)
+            Q(unique_code__icontains=search) |
+            Q(collector__username__icontains=search) |
+            Q(address__label__icontains=search)
         )
         clients = search_clients
         # Use search pagination for better search experience
@@ -101,15 +116,91 @@ def get_clients_view(request):
         # Use regular pagination for normal listing
         paginator = ClientsPagination()
 
-    # Apply filters
+    # Apply advanced filters
     if amount_filter:
         if amount_filter == 'fixed':
             clients = clients.filter(is_fixed=True)
         elif amount_filter == 'variable':
             clients = clients.filter(is_fixed=False)
+    
+    if status_filter:
+        if status_filter == 'active':
+            clients = clients.filter(is_active=True)
+        elif status_filter == 'inactive':
+            clients = clients.filter(is_active=False)
+    
+    if address_filter:
+        clients = clients.filter(address__id=address_filter)
+    
+    # Daily amount range filters
+    if daily_amount_min:
+        try:
+            min_daily = float(daily_amount_min)
+            clients = clients.filter(amount_daily__gte=min_daily)
+        except ValueError:
+            pass
+    
+    if daily_amount_max:
+        try:
+            max_daily = float(daily_amount_max)
+            clients = clients.filter(amount_daily__lte=max_daily)
+        except ValueError:
+            pass
+    
+    # Balance filters (requires calculation - use annotation for performance)
+    if balance_min or balance_max:
+        from django.db.models import Sum, Case, When, DecimalField
+        
+        # Annotate with calculated balance
+        clients = clients.annotate(
+            total_contributions=Sum('contributionmodel__amount'),
+            total_payouts=Sum(
+                Case(
+                    When(payoutmodel__status='paid', then='payoutmodel__net_payout'),
+                    default=0,
+                    output_field=DecimalField()
+                )
+            ),
+            calculated_balance=Case(
+                When(
+                    total_contributions__isnull=True,
+                    then='initial_balance'
+                ),
+                default='initial_balance' + Sum('contributionmodel__amount') - Sum(
+                    Case(
+                        When(payoutmodel__status='paid', then='payoutmodel__net_payout'),
+                        default=0,
+                        output_field=DecimalField()
+                    )
+                ),
+                output_field=DecimalField()
+            )
+        )
+        
+        if balance_min:
+            try:
+                min_balance = float(balance_min)
+                clients = clients.filter(calculated_balance__gte=min_balance)
+            except ValueError:
+                pass
+        
+        if balance_max:
+            try:
+                max_balance = float(balance_max)
+                clients = clients.filter(calculated_balance__lte=max_balance)
+            except ValueError:
+                pass
 
-    # Order by creation date (newest first)
-    clients = clients.order_by('-created_at')
+    # Apply sorting
+    valid_sort_fields = [
+        'name', '-name', 'created_at', '-created_at', 'amount_daily', '-amount_daily',
+        'collector__username', '-collector__username', 'address__label', '-address__label'
+    ]
+    if sort_by in valid_sort_fields:
+        clients = clients.order_by(sort_by)
+    else:
+        # Default sorting
+        clients = clients.order_by('-created_at')
 
     paginated_clients = paginator.paginate_queryset(clients, request)
     serializer = ClientModelSerializer(paginated_clients, many=True)
@@ -260,3 +351,88 @@ def search_clients_view(request):
 @api_view(['GET', 'PATCH'])
 def client_profile(request, id):
     return client_detail(request, id)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_client_stats(request):
+    """Get client statistics for dashboard"""
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can view client stats.'}, status=403)
+    
+    # Get total counts
+    total_clients = ClientModel.objects.count()
+    active_clients = ClientModel.objects.filter(is_active=True).count()
+    fixed_clients = ClientModel.objects.filter(is_fixed=True).count()
+    variable_clients = ClientModel.objects.filter(is_fixed=False).count()
+    
+    # Get total balances
+    total_contributions = ContributionModel.objects.aggregate(total=Sum('amount'))['total'] or 0
+    total_payouts = PayoutModel.objects.filter(status='paid').aggregate(total=Sum('net_payout'))['total'] or 0
+    
+    return Response({
+        'total_clients': total_clients,
+        'active_clients': active_clients,
+        'fixed_clients': fixed_clients,
+        'variable_clients': variable_clients,
+        'total_contributions': total_contributions,
+        'total_payouts': total_payouts,
+        'net_balance': total_contributions - total_payouts
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_client_transactions(request, client_id):
+    """Get combined transactions (contributions + payouts) for a specific client"""
+    try:
+        client = get_object_or_404(ClientModel, id=client_id)
+        
+        # Check permissions
+        if request.user.role == 'collector' and client.collector != request.user and client.collector is not None:
+            return Response({'detail': 'You can only access transactions for your own clients or shared clients.'}, status=403)
+        
+        # Get contributions
+        contributions = ContributionModel.objects.filter(client=client).select_related('collector')
+        
+        # Get payouts
+        payouts = PayoutModel.objects.filter(client=client).select_related('requested_by', 'approved_by')
+        
+        # Combine and format transactions
+        transactions = []
+        
+        # Add contributions
+        for contrib in contributions:
+            transactions.append({
+                'id': str(contrib.id),
+                'type': 'contribution',
+                'amount': float(contrib.amount),
+                'date': contrib.date.isoformat(),
+                'created_at': contrib.created_at.isoformat(),
+                'collector': contrib.collector.username if contrib.collector else None,
+                'note': contrib.note or '',
+                'status': 'completed'
+            })
+        
+        # Add payouts
+        for payout in payouts:
+            transactions.append({
+                'id': str(payout.id),
+                'type': 'payout',
+                'amount': -float(payout.net_payout) if payout.net_payout else -float(payout.requested_amount),
+                'date': (payout.paid_on or payout.approved_on or payout.requested_on).isoformat(),
+                'created_at': payout.requested_on.isoformat(),
+                'collector': payout.requested_by.username if payout.requested_by else None,
+                'note': f'Payout - {payout.status}',
+                'status': payout.status
+            })
+        
+        # Sort by date (newest first)
+        transactions.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        # Pagination
+        paginator = SearchPagination()
+        page = paginator.paginate_queryset(transactions, request)
+        
+        return paginator.get_paginated_response(page)
+        
+    except Exception as e:
+        return Response({'detail': f'Error fetching transactions: {str(e)}'}, status=400)

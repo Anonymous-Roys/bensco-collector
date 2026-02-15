@@ -94,8 +94,15 @@ def list_contributions(request):
     search = request.query_params.get('search', '').strip()
     date_filter = request.query_params.get('date')
     amount_filter = request.query_params.get('amount')
+    collector_filter = request.query_params.get('collector')
+    client_filter = request.query_params.get('client')
+    date_from = request.query_params.get('date_from')
+    date_to = request.query_params.get('date_to')
+    amount_min = request.query_params.get('amount_min')
+    amount_max = request.query_params.get('amount_max')
+    sort_by = request.query_params.get('sort_by', '-created_at')
     
-    # Base queryset
+    # Base queryset with optimized select_related
     if request.user.role == 'admin':
         contributions = ContributionModel.objects.select_related('client', 'collector').all()
     else:
@@ -108,7 +115,9 @@ def list_contributions(request):
         search_query = Q(client__name__icontains=search) | \
                       Q(collector__username__icontains=search) | \
                       Q(amount__icontains=search) | \
-                      Q(note__icontains=search)
+                      Q(note__icontains=search) | \
+                      Q(client__phone_number__icontains=search) | \
+                      Q(client__unique_code__icontains=search)
         contributions = contributions.filter(search_query)
         # Use search pagination for better search experience
         paginator = SearchPagination()
@@ -116,7 +125,46 @@ def list_contributions(request):
         # Use regular pagination for normal listing
         paginator = ContributionsPagination()
     
-    # Apply filters
+    # Apply advanced filters
+    if collector_filter and request.user.role == 'admin':
+        contributions = contributions.filter(collector__id=collector_filter)
+    
+    if client_filter:
+        contributions = contributions.filter(client__id=client_filter)
+    
+    # Date range filters
+    if date_from:
+        try:
+            from datetime import datetime
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+            contributions = contributions.filter(date__gte=date_from_obj)
+        except ValueError:
+            pass
+    
+    if date_to:
+        try:
+            from datetime import datetime
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+            contributions = contributions.filter(date__lte=date_to_obj)
+        except ValueError:
+            pass
+    
+    # Amount range filters
+    if amount_min:
+        try:
+            min_amount = float(amount_min)
+            contributions = contributions.filter(amount__gte=min_amount)
+        except ValueError:
+            pass
+    
+    if amount_max:
+        try:
+            max_amount = float(amount_max)
+            contributions = contributions.filter(amount__lte=max_amount)
+        except ValueError:
+            pass
+    
+    # Legacy date filters
     if date_filter:
         if date_filter == 'today':
             contributions = contributions.filter(date=timezone.now().date())
@@ -127,6 +175,7 @@ def list_contributions(request):
             month_start = timezone.now().date().replace(day=1)
             contributions = contributions.filter(date__gte=month_start)
     
+    # Legacy amount filters
     if amount_filter:
         if amount_filter == 'low':
             contributions = contributions.filter(amount__lt=100)
@@ -142,8 +191,13 @@ def list_contributions(request):
             except ValueError:
                 pass  # Invalid amount filter, ignore
     
-    # Order by creation date (newest first)
-    contributions = contributions.order_by('-created_at')
+    # Apply sorting
+    valid_sort_fields = ['date', '-date', 'amount', '-amount', 'created_at', '-created_at', 'client__name', '-client__name']
+    if sort_by in valid_sort_fields:
+        contributions = contributions.order_by(sort_by)
+    else:
+        # Default sorting
+        contributions = contributions.order_by('-created_at')
     
     paginated_contributions = paginator.paginate_queryset(contributions, request)
     serializer = ContributionModelSerializer(paginated_contributions, many=True)
