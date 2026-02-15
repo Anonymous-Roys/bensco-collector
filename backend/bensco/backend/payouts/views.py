@@ -52,8 +52,13 @@ def list_payouts(request):
     status_filter = request.query_params.get('status')
     date_filter = request.query_params.get('date')
     amount_filter = request.query_params.get('amount')
+    date_from = request.query_params.get('date_from')
+    date_to = request.query_params.get('date_to')
+    amount_min = request.query_params.get('amount_min')
+    amount_max = request.query_params.get('amount_max')
+    sort_by = request.query_params.get('sort_by', '-requested_on')
     
-    # Base queryset
+    # Base queryset with optimized select_related
     payouts = PayoutModel.objects.select_related('client', 'requested_by').all()
     
     # Apply search across ALL database records (not just current page)
@@ -63,7 +68,8 @@ def list_payouts(request):
                       Q(requested_by__username__icontains=search) | \
                       Q(status__icontains=search) | \
                       Q(requested_amount__icontains=search) | \
-                      Q(net_payout__icontains=search)
+                      Q(net_payout__icontains=search) | \
+                      Q(client__unique_code__icontains=search)
         payouts = payouts.filter(search_query)
         # Use search pagination for better search experience
         paginator = SearchPagination()
@@ -71,10 +77,43 @@ def list_payouts(request):
         # Use regular pagination for normal listing
         paginator = PayoutsPagination()
     
-    # Apply filters
+    # Apply advanced filters
     if status_filter and status_filter != 'all':
         payouts = payouts.filter(status=status_filter)
     
+    # Date range filters
+    if date_from:
+        try:
+            from datetime import datetime
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+            payouts = payouts.filter(requested_on__date__gte=date_from_obj)
+        except ValueError:
+            pass
+    
+    if date_to:
+        try:
+            from datetime import datetime
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+            payouts = payouts.filter(requested_on__date__lte=date_to_obj)
+        except ValueError:
+            pass
+    
+    # Amount range filters
+    if amount_min:
+        try:
+            min_amount = float(amount_min)
+            payouts = payouts.filter(requested_amount__gte=min_amount)
+        except ValueError:
+            pass
+    
+    if amount_max:
+        try:
+            max_amount = float(amount_max)
+            payouts = payouts.filter(requested_amount__lte=max_amount)
+        except ValueError:
+            pass
+    
+    # Legacy date filters
     if date_filter:
         if date_filter == 'today':
             payouts = payouts.filter(requested_on__date=timezone.now().date())
@@ -85,6 +124,7 @@ def list_payouts(request):
             month_start = timezone.now().date().replace(day=1)
             payouts = payouts.filter(requested_on__date__gte=month_start)
     
+    # Legacy amount filters
     if amount_filter:
         try:
             amount_value = float(amount_filter)
@@ -92,8 +132,17 @@ def list_payouts(request):
         except ValueError:
             pass  # Invalid amount filter, ignore
     
-    # Order by most recent first
-    payouts = payouts.order_by('-requested_on')
+    # Apply sorting
+    valid_sort_fields = [
+        'requested_on', '-requested_on', 'requested_amount', '-requested_amount',
+        'net_payout', '-net_payout', 'status', '-status',
+        'client__name', '-client__name'
+    ]
+    if sort_by in valid_sort_fields:
+        payouts = payouts.order_by(sort_by)
+    else:
+        # Default sorting
+        payouts = payouts.order_by('-requested_on')
     
     paginated_payouts = paginator.paginate_queryset(payouts, request)
     serializer = PayoutModelSerializer(paginated_payouts, many=True)
