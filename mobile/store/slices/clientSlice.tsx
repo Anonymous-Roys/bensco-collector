@@ -83,15 +83,17 @@ const clientSlice = createSlice({
         state.loading = false;
         state.loadingMore = false;
         
+        const results = action.payload.results || [];
+        
         if (action.payload.loadMore) {
           // Append new clients for infinite scroll
-          state.clients = [...state.clients, ...action.payload.results];
+          state.clients = [...(state.clients || []), ...results];
         } else {
           // Replace clients for new search or refresh
-          state.clients = action.payload.results;
+          state.clients = results;
         }
         
-        state.totalCount = action.payload.count;
+        state.totalCount = action.payload.count || 0;
         state.currentPage = action.meta.arg?.page || 1;
         state.hasNextPage = action.payload.next !== null;
       })

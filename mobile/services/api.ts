@@ -542,14 +542,22 @@ export const contributionAPI = {
   },
 
   // Get contributions by client
-  getContributionsByClient: async (clientId: string): Promise<Contribution[]> => {
+  getContributionsByClient: async (clientId: string, page?: number): Promise<any> => {
     try {
-      const url = API_CONFIG.CONTRIBUTIONS.BY_CLIENT.replace(':client_id', clientId);
-      const response: AxiosResponse<ContributionListResponse> = await api.get(url);
-      const data = response.data as any;
-      if (Array.isArray(data)) return data;
-      if (data && Array.isArray(data.results)) return data.results;
-      return [];
+      const url = new URL(`${API_CONFIG.BASE_URL}${API_CONFIG.CONTRIBUTIONS.BY_CLIENT.replace(':client_id', clientId)}`);
+      
+      if (page) {
+        url.searchParams.set('page', page.toString());
+      }
+      
+      // Set page size for contribution history
+      url.searchParams.set('page_size', '10');
+      
+      const timeout = getAdaptiveTimeout(API_TIMEOUTS.fallback);
+      console.log(`🕐 Using timeout: ${timeout}ms for client contributions (page: ${page || 1})`);
+      
+      const response = await api.get(url.toString(), { timeout });
+      return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const apiError: ApiError = error.response?.data || { detail: 'Failed to fetch client contributions' };

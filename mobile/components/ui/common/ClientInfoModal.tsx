@@ -15,6 +15,10 @@ interface ClientInfoModalProps {
 export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClose, onCollect, onRequestPayout }) => {
   const [contributionHistory, setContributionHistory] = useState<any>(null);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [loadingMoreHistory, setLoadingMoreHistory] = useState(false);
+  const [hasMoreHistory, setHasMoreHistory] = useState(false);
+  const [allHistoryData, setAllHistoryData] = useState<any[]>([]);
   
   // For now, we'll show all clients as active since the backend doesn't provide status
   const status = 'active';
@@ -23,8 +27,10 @@ export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClos
     const fetchContributionHistory = async () => {
       try {
         setLoadingHistory(true);
-        const response = await contributionAPI.getContributionsByClient(client.id);
+        const response = await contributionAPI.getContributionsByClient(client.id, 1);
         setContributionHistory(response);
+        setAllHistoryData(response.daily_history || []);
+        setHasMoreHistory(response.has_next || false);
       } catch (error) {
         console.error('Failed to fetch contribution history:', error);
       } finally {
@@ -34,6 +40,35 @@ export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClos
 
     fetchContributionHistory();
   }, [client.id]);
+
+  const loadMoreHistory = async () => {
+    if (!hasMoreHistory || loadingMoreHistory) return;
+    
+    try {
+      setLoadingMoreHistory(true);
+      const nextPage = historyPage + 1;
+      const response = await contributionAPI.getContributionsByClient(client.id, nextPage);
+      
+      // Append new data to existing data
+      const newHistoryData = [...allHistoryData, ...(response.daily_history || [])];
+      setAllHistoryData(newHistoryData);
+      
+      // Update contribution history with new data
+      setContributionHistory({
+        ...contributionHistory,
+        daily_history: newHistoryData
+      });
+      
+      setHistoryPage(nextPage);
+      setHasMoreHistory(response.has_next || false);
+    } catch (error) {
+      console.error('Failed to load more history:', error);
+    } finally {
+      setLoadingMoreHistory(false);
+    }
+  };
+
+  const displayedHistoryItems = allHistoryData || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -147,17 +182,21 @@ export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClos
                   </View>
                 </View>
                 <ScrollView style={styles.historyList} nestedScrollEnabled>
-                  {contributionHistory.daily_history?.slice(0, 10).map((day: any) => (
+                  {displayedHistoryItems.map((day: any) => (
                     <View key={day.date} style={styles.historyItem}>
                       <View style={styles.historyDate}>
                         <Text style={styles.historyDateText}>
-                          {new Date(day.date).toLocaleDateString('en-GB', { 
+                          {new Date(day.date + 'T00:00:00Z').toLocaleDateString('en-GB', { 
                             day: 'numeric', 
-                            month: 'short' 
+                            month: 'short',
+                            timeZone: 'UTC'
                           })}
                         </Text>
                         <Text style={styles.historyDayText}>
-                          {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short' })}
+                          {new Date(day.date + 'T00:00:00Z').toLocaleDateString('en-GB', { 
+                            weekday: 'short',
+                            timeZone: 'UTC'
+                          })}
                         </Text>
                       </View>
                       <View style={styles.historyAmount}>
@@ -175,6 +214,19 @@ export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClos
                       />
                     </View>
                   ))}
+                  {hasMoreHistory && (
+                    <TouchableOpacity 
+                      style={styles.loadMoreHistoryButton} 
+                      onPress={loadMoreHistory}
+                      disabled={loadingMoreHistory}
+                    >
+                      {loadingMoreHistory ? (
+                        <ActivityIndicator size="small" color={LogoColors.primary.red} />
+                      ) : (
+                        <Text style={styles.loadMoreHistoryText}>Load More Days</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </ScrollView>
               </View>
             ) : (
@@ -424,5 +476,19 @@ const styles = StyleSheet.create({
     color: LogoColors.text.secondary,
     fontStyle: 'italic',
     padding: 20,
+  },
+  loadMoreHistoryButton: {
+    backgroundColor: LogoColors.background.secondary,
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+  },
+  loadMoreHistoryText: {
+    color: LogoColors.primary.red,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

@@ -76,6 +76,17 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showDobPicker, setShowDobPicker] = useState(false);
 
+  // Convert DD/MM/YYYY to YYYY-MM-DD
+  const convertDateFormat = (dateStr: string): string | null => {
+    if (!dateStr) return null;
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    return null;
+  };
+
   const handleSubmit = async () => {
     // Validate required fields
     const errors = [];
@@ -122,17 +133,18 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
       
       // Create client
       const clientData = {
-        name: formData.name,
-        phone_number: formData.phone_number,
+        name: formData.name.trim(),
+        phone_number: formData.phone_number.trim(),
         amount_daily: formData.amount_daily ? parseFloat(formData.amount_daily) : 0,
         is_fixed: formData.is_fixed,
         start_date: formData.start_date.toISOString().split('T')[0],
-        dob: formData.dobText || (formData.dob ? formData.dob.toISOString().split('T')[0] : null),
+        dob: formData.dob ? formData.dob.toISOString().split('T')[0] : (formData.dobText ? convertDateFormat(formData.dobText) : null),
         next_of_kin: formData.next_of_kin || null,
         initial_balance: parseFloat(formData.initial_balance) || 0,
         address: addressId === 'none' ? null : addressId,
-        collector: 'all',
       };
+      
+      console.log('Creating client with data:', clientData);
       
       const response = await fetch('https://bensco-collector1.onrender.com/clients/create/', {
         method: 'POST',
@@ -141,9 +153,13 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
           'Authorization': `Bearer ${await AsyncStorage.getItem('auth_token')}`,
         },
         body: JSON.stringify(clientData),
+        timeout: 60000, // 60 second timeout
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Client created successfully:', result);
+        
         Alert.alert('Success', 'Client created successfully!');
         setFormData({
           name: '',
@@ -162,11 +178,13 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
         setCustomRegion('');
         onSuccess();
       } else {
-        const error = await response.json();
-        Alert.alert('Error', error.detail || 'Failed to create client');
+        const errorData = await response.json();
+        console.error('API Error Response:', errorData);
+        Alert.alert('Error', errorData.detail || errorData.message || 'Failed to create client');
       }
-    } catch (error) {
-      Alert.alert('Error', 'Network error. Please try again.');
+    } catch (error: any) {
+      console.error('Client creation error:', error);
+      Alert.alert('Error', error.message || 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }

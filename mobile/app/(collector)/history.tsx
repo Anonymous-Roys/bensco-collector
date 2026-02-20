@@ -114,9 +114,10 @@ export default function CollectionHistory() {
       weekday: 'long', 
       day: 'numeric', 
       month: 'long',
-      year: 'numeric'
+      year: 'numeric',
+      timeZone: 'UTC'
     };
-    return new Date(dateStr).toLocaleDateString('en-GB', options);
+    return new Date(dateStr + 'T00:00:00Z').toLocaleDateString('en-GB', options);
   };
 
   // Render individual contribution within a day

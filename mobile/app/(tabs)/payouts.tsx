@@ -253,7 +253,7 @@ const PayoutsScreen = () => {
             color={getStatusColor(payout.status)} 
           />
           <Text style={[styles.statusText, { color: getStatusColor(payout.status) }]}>
-            {payout.status.toUpperCase().replace('_', ' ')}
+            {(payout.status || '').toUpperCase().replace('_', ' ')}
           </Text>
         </View>
       </View>
