@@ -213,9 +213,74 @@ def client_contributions(request, client_id):
     except ClientModel.DoesNotExist:
         return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    contributions = ContributionModel.objects.filter(client=client).order_by('-date')
-    serializer = ContributionModelSerializer(contributions, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+    from collections import defaultdict
+    from datetime import datetime, timedelta
+    
+    # Get all contributions for this client
+    contributions = ContributionModel.objects.filter(
+        client=client
+    ).select_related('collector').order_by('date', 'created_at')
+    
+    # Group contributions by date
+    daily_contributions = defaultdict(list)
+    daily_totals = defaultdict(float)
+    
+    for contrib in contributions:
+        date_str = contrib.date.isoformat()
+        daily_contributions[date_str].append({
+            'id': str(contrib.id),
+            'amount': float(contrib.amount),
+            'collector_name': contrib.collector.username if contrib.collector else 'Unknown',
+            'time': contrib.created_at.strftime('%H:%M'),
+            'created_at': contrib.created_at.isoformat(),
+            'note': contrib.note or ''
+        })
+        daily_totals[date_str] += float(contrib.amount)
+    
+    # Create complete daily history from start date to today
+    if contributions.exists():
+        start_date = contributions.first().date
+        today = timezone.now().date()
+        
+        daily_history = []
+        current_date = start_date
+        
+        while current_date <= today:
+            date_str = current_date.isoformat()
+            daily_history.append({
+                'date': date_str,
+                'total_amount': daily_totals.get(date_str, 0),
+                'count': len(daily_contributions.get(date_str, [])),
+                'contributions': daily_contributions.get(date_str, []),
+                'has_contribution': date_str in daily_contributions
+            })
+            current_date += timedelta(days=1)
+        
+        # Reverse to show most recent first
+        daily_history.reverse()
+    else:
+        daily_history = []
+    
+    # Calculate summary stats
+    total_contributed = sum(daily_totals.values())
+    total_days = len([d for d in daily_history if d['has_contribution']])
+    average_daily = total_contributed / total_days if total_days > 0 else 0
+    
+    return Response({
+        'client': {
+            'id': client.id,
+            'name': client.name,
+            'start_date': contributions.first().date.isoformat() if contributions.exists() else None,
+            'daily_amount': float(client.amount_daily) if client.amount_daily else 0
+        },
+        'summary': {
+            'total_contributed': total_contributed,
+            'total_days_contributed': total_days,
+            'average_daily_contribution': average_daily,
+            'total_days_since_start': len(daily_history)
+        },
+        'daily_history': daily_history
+    }, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

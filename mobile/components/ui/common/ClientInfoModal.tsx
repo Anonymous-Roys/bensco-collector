@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LogoColors } from '@/constants/Colors';
 import { Client } from '@/constants/types';
+import { contributionAPI } from '@/services/api';
 
 interface ClientInfoModalProps {
   client: Client;
@@ -12,8 +13,27 @@ interface ClientInfoModalProps {
 }
 
 export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClose, onCollect, onRequestPayout }) => {
+  const [contributionHistory, setContributionHistory] = useState<any>(null);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  
   // For now, we'll show all clients as active since the backend doesn't provide status
   const status = 'active';
+
+  useEffect(() => {
+    const fetchContributionHistory = async () => {
+      try {
+        setLoadingHistory(true);
+        const response = await contributionAPI.getContributionsByClient(client.id);
+        setContributionHistory(response);
+      } catch (error) {
+        console.error('Failed to fetch contribution history:', error);
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+
+    fetchContributionHistory();
+  }, [client.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -100,6 +120,66 @@ export const ClientInfoModal: React.FC<ClientInfoModalProps> = ({ client, onClos
                 </Text>
               </View>
             </View>
+          </View>
+
+          {/* Daily Contribution History */}
+          <View style={styles.historySection}>
+            <Text style={styles.sectionTitle}>Daily Contribution History</Text>
+            {loadingHistory ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={LogoColors.primary.red} />
+                <Text style={styles.loadingText}>Loading history...</Text>
+              </View>
+            ) : contributionHistory ? (
+              <View>
+                <View style={styles.summaryStats}>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>GHS {contributionHistory.summary?.total_contributed?.toFixed(2) || '0.00'}</Text>
+                    <Text style={styles.statLabel}>Total Contributed</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>{contributionHistory.summary?.total_days_contributed || 0}</Text>
+                    <Text style={styles.statLabel}>Days Contributed</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>GHS {contributionHistory.summary?.average_daily_contribution?.toFixed(2) || '0.00'}</Text>
+                    <Text style={styles.statLabel}>Daily Average</Text>
+                  </View>
+                </View>
+                <ScrollView style={styles.historyList} nestedScrollEnabled>
+                  {contributionHistory.daily_history?.slice(0, 10).map((day: any) => (
+                    <View key={day.date} style={styles.historyItem}>
+                      <View style={styles.historyDate}>
+                        <Text style={styles.historyDateText}>
+                          {new Date(day.date).toLocaleDateString('en-GB', { 
+                            day: 'numeric', 
+                            month: 'short' 
+                          })}
+                        </Text>
+                        <Text style={styles.historyDayText}>
+                          {new Date(day.date).toLocaleDateString('en-GB', { weekday: 'short' })}
+                        </Text>
+                      </View>
+                      <View style={styles.historyAmount}>
+                        <Text style={[styles.historyAmountText, !day.has_contribution && styles.noContribution]}>
+                          {day.has_contribution ? `GHS ${day.total_amount.toFixed(2)}` : 'No collection'}
+                        </Text>
+                        {day.count > 1 && (
+                          <Text style={styles.historyCountText}>{day.count} collections</Text>
+                        )}
+                      </View>
+                      <MaterialCommunityIcons 
+                        name={day.has_contribution ? 'check-circle' : 'circle-outline'} 
+                        size={20} 
+                        color={day.has_contribution ? LogoColors.status.success : LogoColors.text.light} 
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+            ) : (
+              <Text style={styles.noHistoryText}>No contribution history available</Text>
+            )}
           </View>
 
           <View style={styles.quickActions}>
@@ -263,5 +343,86 @@ const styles = StyleSheet.create({
   },
   secondaryActionBtnText: {
     color: LogoColors.primary.red,
+  },
+  historySection: {
+    marginBottom: 24,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginLeft: 8,
+    color: LogoColors.text.secondary,
+  },
+  summaryStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    backgroundColor: LogoColors.background.secondary,
+    borderRadius: 8,
+    padding: 12,
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: LogoColors.text.primary,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: LogoColors.text.secondary,
+    marginTop: 2,
+  },
+  historyList: {
+    maxHeight: 200,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: LogoColors.border.light,
+  },
+  historyDate: {
+    width: 60,
+    alignItems: 'center',
+  },
+  historyDateText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: LogoColors.text.primary,
+  },
+  historyDayText: {
+    fontSize: 12,
+    color: LogoColors.text.secondary,
+  },
+  historyAmount: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  historyAmountText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: LogoColors.text.primary,
+  },
+  noContribution: {
+    color: LogoColors.text.light,
+    fontStyle: 'italic',
+  },
+  historyCountText: {
+    fontSize: 12,
+    color: LogoColors.text.secondary,
+  },
+  noHistoryText: {
+    textAlign: 'center',
+    color: LogoColors.text.secondary,
+    fontStyle: 'italic',
+    padding: 20,
   },
 });
