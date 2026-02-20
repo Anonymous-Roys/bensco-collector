@@ -80,13 +80,28 @@ export default function CollectorHome() {
         if (dateString) {
           const date = new Date(dateString);
           if (!isNaN(date.getTime())) {
-            displayTime = date.toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric', 
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: true
-            });
+            // Use same format as collection history - just time for today, date+time for older
+            const today = new Date().toDateString();
+            const contributionDateStr = date.toDateString();
+            
+            if (contributionDateStr === today) {
+              // Same day - show only time
+              displayTime = date.toLocaleTimeString('en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              });
+            } else {
+              // Different day - show date and time
+              displayTime = date.toLocaleDateString('en-GB', {
+                month: 'short',
+                day: 'numeric'
+              }) + ' ' + date.toLocaleTimeString('en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              });
+            }
           }
         }
         
@@ -117,7 +132,7 @@ export default function CollectorHome() {
         const results = await Promise.allSettled([
           dispatch(fetchClients()).unwrap(),
           contributionAPI.getCollectorStats(),
-          contributionAPI.getContributions()
+          contributionAPI.getGroupedContributions()
         ]);
 
         const [clientsResult, statsResult, contribsResult] = results;
@@ -131,9 +146,24 @@ export default function CollectorHome() {
         
         // Handle contributions
         if (contribsResult.status === 'fulfilled') {
-          console.log('Raw contributions response:', contribsResult.value);
-          console.log('Sample contribution:', contribsResult.value?.[0]);
-          const processedData = processContributions(contribsResult.value || []);
+          console.log('Raw grouped contributions response:', contribsResult.value);
+          // Flatten grouped contributions to get all individual contributions
+          const allContributions = [];
+          if (Array.isArray(contribsResult.value)) {
+            contribsResult.value.forEach((dayGroup: any) => {
+              if (dayGroup.contributions && Array.isArray(dayGroup.contributions)) {
+                dayGroup.contributions.forEach((contrib: any) => {
+                  allContributions.push({
+                    ...contrib,
+                    created_at: contrib.created_at,
+                    date: dayGroup.date
+                  });
+                });
+              }
+            });
+          }
+          console.log('Flattened contributions:', allContributions);
+          const processedData = processContributions(allContributions);
           console.log('Processed collections:', processedData.recentCollections);
           setRecentCollections(processedData.recentCollections);
         }
@@ -181,7 +211,7 @@ export default function CollectorHome() {
       const results = await Promise.allSettled([
         dispatch(fetchClients()).unwrap(),
         contributionAPI.getCollectorStats(),
-        contributionAPI.getContributions()
+        contributionAPI.getGroupedContributions()
       ]);
 
       // Process results even if some fail
@@ -195,7 +225,22 @@ export default function CollectorHome() {
       
       // Handle contributions
       if (contribsResult.status === 'fulfilled') {
-        const processedData = processContributions(contribsResult.value || []);
+        // Flatten grouped contributions to get all individual contributions
+        const allContributions = [];
+        if (Array.isArray(contribsResult.value)) {
+          contribsResult.value.forEach((dayGroup: any) => {
+            if (dayGroup.contributions && Array.isArray(dayGroup.contributions)) {
+              dayGroup.contributions.forEach((contrib: any) => {
+                allContributions.push({
+                  ...contrib,
+                  created_at: contrib.created_at,
+                  date: dayGroup.date
+                });
+              });
+            }
+          });
+        }
+        const processedData = processContributions(allContributions);
         setRecentCollections(processedData.recentCollections);
       }
       

@@ -39,16 +39,15 @@ export default function CollectionHistory() {
       try {
         setLoading(true);
         setError(null);
-        const data = await contributionAPI.getGroupedContributions();
+        const data = await contributionAPI.getGroupedContributions({ page: 1, page_size: ITEMS_PER_PAGE });
         if (!mounted) return;
         
-        const groupedData = Array.isArray(data) ? data : [];
+        const groupedData = Array.isArray(data.results || data) ? (data.results || data) : [];
         setAllGroupedData(groupedData);
         
         // Load first page
-        const firstPageData = groupedData.slice(0, ITEMS_PER_PAGE);
-        setDisplayedData(firstPageData);
-        setHasNextPage(groupedData.length > ITEMS_PER_PAGE);
+        setDisplayedData(groupedData);
+        setHasNextPage(data.next !== null);
         setCurrentPage(1);
       } catch (e: any) {
         if (!mounted) return;
@@ -67,16 +66,18 @@ export default function CollectionHistory() {
     try {
       setLoadingMore(true);
       
-      // Simulate async loading for better UX
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
       const nextPage = currentPage + 1;
-      const startIndex = 0;
-      const endIndex = nextPage * ITEMS_PER_PAGE;
+      const data = await contributionAPI.getGroupedContributions({ page: nextPage, page_size: ITEMS_PER_PAGE });
       
-      const newData = allGroupedData.slice(startIndex, endIndex);
-      setDisplayedData(newData);
-      setHasNextPage(endIndex < allGroupedData.length);
+      const newGroupedData = Array.isArray(data.results || data) ? (data.results || data) : [];
+      
+      // Append new data
+      const updatedAllData = [...allGroupedData, ...newGroupedData];
+      const updatedDisplayData = [...displayedData, ...newGroupedData];
+      
+      setAllGroupedData(updatedAllData);
+      setDisplayedData(updatedDisplayData);
+      setHasNextPage(data.next !== null);
       setCurrentPage(nextPage);
     } catch (e: any) {
       setError(e?.message || 'Failed to load more history');
@@ -85,12 +86,16 @@ export default function CollectionHistory() {
     }
   };
 
-  const totalCollected = useMemo(() => {
-    return allGroupedData.reduce((sum, day) => sum + day.total_amount, 0);
+  const todayCollected = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayData = allGroupedData.find(day => day.date === today);
+    return todayData ? todayData.total_amount : 0;
   }, [allGroupedData]);
 
-  const totalCount = useMemo(() => {
-    return allGroupedData.reduce((sum, day) => sum + day.count, 0);
+  const todayCount = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayData = allGroupedData.find(day => day.date === today);
+    return todayData ? todayData.count : 0;
   }, [allGroupedData]);
 
   const toggleDateExpansion = (date: string) => {
@@ -115,22 +120,34 @@ export default function CollectionHistory() {
   };
 
   // Render individual contribution within a day
-  const renderContribution = (contribution: any) => (
-    <View key={contribution.id} style={styles.contributionItem}>
-      <View style={styles.contributionLeft}>
-        <MaterialCommunityIcons 
-          name="account" 
-          size={20} 
-          color={LogoColors.text.secondary} 
-        />
-        <View style={styles.contributionDetails}>
-          <Text style={styles.contributionClientName}>{contribution.client_name}</Text>
-          <Text style={styles.contributionTime}>{contribution.time}</Text>
+  const renderContribution = (contribution: any) => {
+    // Format timestamp directly from created_at
+    const formatTime = (timestamp: string) => {
+      const date = new Date(timestamp);
+      return date.toLocaleTimeString('en-GB', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      });
+    };
+
+    return (
+      <View key={contribution.id} style={styles.contributionItem}>
+        <View style={styles.contributionLeft}>
+          <MaterialCommunityIcons 
+            name="account" 
+            size={20} 
+            color={LogoColors.text.secondary} 
+          />
+          <View style={styles.contributionDetails}>
+            <Text style={styles.contributionClientName}>{contribution.client_name}</Text>
+            <Text style={styles.contributionTime}>{formatTime(contribution.created_at)}</Text>
+          </View>
         </View>
+        <Text style={styles.contributionAmount}>GHS {contribution.amount.toFixed(2)}</Text>
       </View>
-      <Text style={styles.contributionAmount}>GHS {contribution.amount.toFixed(2)}</Text>
-    </View>
-  );
+    );
+  };
 
   // Render each day folder
   const renderDayFolder = ({ item }: { item: GroupedContribution }) => {
@@ -190,14 +207,14 @@ export default function CollectionHistory() {
         <View style={styles.summaryRow}>
           <MetricCard
             icon="cash"
-            value={`GHS ${totalCollected.toFixed(2)}`}
-            label="Total Collected"
+            value={`GHS ${todayCollected.toFixed(2)}`}
+            label="Collected Today"
             backgroundColor={LogoColors.status.success}
           />
           <MetricCard
             icon="clipboard-list"
-            value={totalCount.toString()}
-            label="Total Collections"
+            value={todayCount.toString()}
+            label="Collections Today"
             backgroundColor={LogoColors.primary.red}
           />
         </View>

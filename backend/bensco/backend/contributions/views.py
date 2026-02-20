@@ -360,19 +360,24 @@ def get_collector_stats(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_grouped_contributions(request):
-    """Get contributions grouped by date for collector"""
+    """Get contributions grouped by date for collector with pagination"""
     if request.user.role != 'collector':
         return Response({'detail': 'Only collectors can access this endpoint'}, status=403)
     
     from django.db.models import Sum, Count
     from collections import defaultdict
+    from django.core.paginator import Paginator
+    
+    # Get pagination parameters
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 10))
     
     # Get all contributions for this collector
     contributions = ContributionModel.objects.filter(
         collector=request.user
     ).select_related('client').order_by('-date', '-created_at')
     
-    # Group by date
+    # Group by date first
     grouped = defaultdict(list)
     daily_totals = defaultdict(float)
     
@@ -387,14 +392,30 @@ def get_grouped_contributions(request):
         })
         daily_totals[date_str] += float(contrib.amount)
     
-    # Format response
-    result = []
+    # Create list of daily summaries
+    daily_summaries = []
     for date_str in sorted(grouped.keys(), reverse=True):
-        result.append({
+        daily_summaries.append({
             'date': date_str,
             'total_amount': daily_totals[date_str],
             'count': len(grouped[date_str]),
             'contributions': grouped[date_str]
         })
     
-    return Response(result)
+    # Apply pagination to daily summaries
+    paginator = Paginator(daily_summaries, page_size)
+    
+    try:
+        paginated_data = paginator.page(page)
+    except:
+        paginated_data = paginator.page(1)
+    
+    return Response({
+        'count': paginator.count,
+        'next': f'?page={page + 1}&page_size={page_size}' if paginated_data.has_next() else None,
+        'previous': f'?page={page - 1}&page_size={page_size}' if paginated_data.has_previous() else None,
+        'total_pages': paginator.num_pages,
+        'current_page': page,
+        'page_size': page_size,
+        'results': list(paginated_data)
+    })

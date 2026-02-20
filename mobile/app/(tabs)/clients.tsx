@@ -62,7 +62,8 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
     amount_daily: '',
     is_fixed: true,
     start_date: new Date(),
-    dob: new Date(),
+    dob: null as Date | null,
+    dobText: '',
     next_of_kin: '',
     initial_balance: '0',
     address: '',
@@ -126,7 +127,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
         amount_daily: formData.amount_daily ? parseFloat(formData.amount_daily) : 0,
         is_fixed: formData.is_fixed,
         start_date: formData.start_date.toISOString().split('T')[0],
-        dob: formData.dob ? formData.dob.toISOString().split('T')[0] : null,
+        dob: formData.dobText || (formData.dob ? formData.dob.toISOString().split('T')[0] : null),
         next_of_kin: formData.next_of_kin || null,
         initial_balance: parseFloat(formData.initial_balance) || 0,
         address: addressId === 'none' ? null : addressId,
@@ -150,7 +151,8 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
           amount_daily: '',
           is_fixed: true,
           start_date: new Date(),
-          dob: new Date(),
+          dob: null,
+          dobText: '',
           next_of_kin: '',
           initial_balance: '0',
           address: '',
@@ -308,15 +310,21 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Date of Birth</Text>
-            <TouchableOpacity 
-              style={styles.dateButton}
-              onPress={() => setShowDobPicker(true)}
-            >
-              <Text style={styles.dateButtonText}>
-                {formData.dob.toLocaleDateString()}
-              </Text>
-              <MaterialCommunityIcons name="calendar" size={20} color={LogoColors.text.secondary} />
-            </TouchableOpacity>
+            <View style={styles.dobContainer}>
+              <TextInput
+                style={[styles.input, styles.dobInput]}
+                value={formData.dobText}
+                onChangeText={(text) => setFormData(prev => ({ ...prev, dobText: text, dob: null }))}
+                placeholder="DD/MM/YYYY or text format"
+                placeholderTextColor={LogoColors.text.secondary}
+              />
+              <TouchableOpacity 
+                style={styles.calendarButton}
+                onPress={() => setShowDobPicker(true)}
+              >
+                <MaterialCommunityIcons name="calendar" size={20} color={LogoColors.primary.red} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.formGroup}>
@@ -385,14 +393,18 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
         
         {showDobPicker && (
           <DateTimePicker
-            value={formData.dob}
+            value={formData.dob || new Date(2000, 0, 1)}
             mode="date"
             display="default"
             maximumDate={new Date()}
             onChange={(event, selectedDate) => {
               setShowDobPicker(false);
               if (selectedDate) {
-                setFormData(prev => ({ ...prev, dob: selectedDate }));
+                setFormData(prev => ({ 
+                  ...prev, 
+                  dob: selectedDate,
+                  dobText: selectedDate.toLocaleDateString()
+                }));
               }
             }}
           />
@@ -404,7 +416,7 @@ const CreateClientModal = ({ visible, onClose, onSuccess }: {
 
 export default function ClientsScreen() {
   const dispatch = useDispatch<AppDispatch>();
-  const { clients, loading, error, totalCount } = useSelector((state: RootState) => state.clients);
+  const { clients, loading, loadingMore, error, totalCount, currentPage, hasNextPage } = useSelector((state: RootState) => state.clients);
   const { loading: contributionLoading } = useSelector((state: RootState) => state.contributions);
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -430,8 +442,22 @@ export default function ClientsScreen() {
 
   // Fetch clients on component mount and when debounced search changes
   useEffect(() => {
-    dispatch(fetchClients({ search: debouncedSearchQuery.trim() || undefined }));
+    dispatch(fetchClients({ 
+      search: debouncedSearchQuery.trim() || undefined,
+      page: 1
+    }));
   }, [dispatch, debouncedSearchQuery]);
+
+  // Load more clients when scrolling
+  const loadMoreClients = useCallback(() => {
+    if (!loadingMore && hasNextPage && !loading) {
+      dispatch(fetchClients({ 
+        search: debouncedSearchQuery.trim() || undefined,
+        page: currentPage + 1,
+        loadMore: true
+      }));
+    }
+  }, [dispatch, debouncedSearchQuery, currentPage, hasNextPage, loadingMore, loading]);
 
   // Clear error when component unmounts
   useEffect(() => {
@@ -441,26 +467,32 @@ export default function ClientsScreen() {
   }, [dispatch]);
 
   // Sort clients (filtering is now done server-side)
-  const sortedClients = clients
-    .filter(client => {
-      // For now, we'll show all clients as active since the backend doesn't provide status
-      const matchesFilter = selectedFilter === 'all' || selectedFilter === 'active';
-      return matchesFilter;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'status':
-          return 0; // No status in backend data for now
-        case 'amount':
-          return parseFloat(b.amount_daily) - parseFloat(a.amount_daily);
-        case 'date':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        default:
-          return 0;
-      }
-    });
+  const sortedClients = useMemo(() => {
+    if (!clients || !Array.isArray(clients)) {
+      return [];
+    }
+    
+    return clients
+      .filter(client => {
+        // For now, we'll show all clients as active since the backend doesn't provide status
+        const matchesFilter = selectedFilter === 'all' || selectedFilter === 'active';
+        return matchesFilter;
+      })
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'name':
+            return a.name.localeCompare(b.name);
+          case 'status':
+            return 0; // No status in backend data for now
+          case 'amount':
+            return parseFloat(b.amount_daily) - parseFloat(a.amount_daily);
+          case 'date':
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          default:
+            return 0;
+        }
+      });
+  }, [clients, selectedFilter, sortBy]);
 
   // Handle quick collect
   const handleQuickCollect = async () => {
@@ -507,7 +539,10 @@ export default function ClientsScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchClients({ search: debouncedSearchQuery.trim() || undefined }));
+      await dispatch(fetchClients({ 
+        search: debouncedSearchQuery.trim() || undefined,
+        page: 1
+      }));
     } catch (error) {
       console.error('Error refreshing clients:', error);
     } finally {
@@ -653,6 +688,15 @@ export default function ClientsScreen() {
             tintColor={LogoColors.primary.red}
           />
         }
+        onEndReached={loadMoreClients}
+        onEndReachedThreshold={0.1}
+        ListFooterComponent={() => (
+          loadingMore ? (
+            <View style={styles.loadingMore}>
+              <Text style={styles.loadingMoreText}>Loading more clients...</Text>
+            </View>
+          ) : null
+        )}
         ListEmptyComponent={() => (
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="account-group-outline" size={64} color={LogoColors.text.secondary} />
@@ -1039,6 +1083,29 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   cancelCustomText: {
+    fontSize: 14,
+    color: LogoColors.text.secondary,
+  },
+  dobContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dobInput: {
+    flex: 1,
+  },
+  calendarButton: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: LogoColors.border.light,
+    borderRadius: 8,
+    backgroundColor: LogoColors.background.secondary,
+  },
+  loadingMore: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingMoreText: {
     fontSize: 14,
     color: LogoColors.text.secondary,
   },

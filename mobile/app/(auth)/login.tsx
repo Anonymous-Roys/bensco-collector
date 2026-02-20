@@ -15,36 +15,48 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/Colors';
 import { router } from 'expo-router';
-import NetInfo from '@react-native-community/netinfo';
 import { useAuth } from '@/hooks/useAuth';
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [isOffline, setIsOffline] = useState<boolean>(false);
   const [rememberMe, setRememberMe] = useState<boolean>(false);
   const [loginAttempts, setLoginAttempts] = useState<number>(0);
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
   const [blockTimer, setBlockTimer] = useState<number>(0);
-  const [showForgotPassword, setShowForgotPassword] = useState<boolean>(false);
-  const [resetEmail, setResetEmail] = useState<string>('');
-  const [resetPhone, setResetPhone] = useState<string>('');
-  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false); // Local loading state
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+  const [networkStatus, setNetworkStatus] = useState({ isOnline: false, quality: 'offline' as const });
 
-  // Use auth hook
-  const { login, offlineLogin, requestPasswordReset, getSavedCredentials, isLoading: authLoading, user } = useAuth();
+  // Use enhanced auth hook
+  const { 
+    login, 
+    offlineLogin, 
+    requestPasswordReset, 
+    getSavedCredentials, 
+    isLoading: authLoading, 
+    getNetworkStatus,
+    connectionQuality 
+  } = useAuth();
 
-  // Combined loading state (auth hook loading + local loading)
+  // Combined loading state
   const isLoading = authLoading || isLoggingIn;
 
-  // Simulate network status
+  // Monitor network status
   useEffect(() => {
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsOffline(!state.isConnected);
-    });
-    return () => unsubscribe();
-  }, []);
+    const updateNetworkStatus = () => {
+      const status = getNetworkStatus();
+      setNetworkStatus(status);
+    };
+
+    // Update immediately
+    updateNetworkStatus();
+
+    // Set up interval to check network status
+    const interval = setInterval(updateNetworkStatus, 2000);
+
+    return () => clearInterval(interval);
+  }, [getNetworkStatus]);
 
   // Load saved credentials on component mount
   useEffect(() => {
@@ -55,15 +67,17 @@ const LoginScreen: React.FC = () => {
           setEmail(credentials.email);
           setPassword(credentials.password);
           setRememberMe(true);
+          console.log('📱 Loaded saved credentials');
         }
       } catch (error) {
-        console.log("Couldn't load saved credentials!", error);
+        console.log('⚠️ Could not load saved credentials:', error);
       }
     };
 
     loadCredentials();
   }, [getSavedCredentials]);
 
+  // Handle block timer
   useEffect(() => {
     if (isBlocked && blockTimer > 0) {
       const timer = setTimeout(() => {
@@ -82,9 +96,8 @@ const LoginScreen: React.FC = () => {
   };
 
   const handleLogin = async (): Promise<void> => {
-    // Prevent multiple simultaneous login attempts
     if (isLoggingIn) {
-      console.log('Login already in progress...');
+      console.log('🔄 Login already in progress...');
       return;
     }
 
@@ -97,6 +110,7 @@ const LoginScreen: React.FC = () => {
       return;
     }
 
+    // Validation
     if (!email.trim() || !password.trim()) {
       Alert.alert("Missing Information", "Please enter both email and password.");
       return;
@@ -107,17 +121,46 @@ const LoginScreen: React.FC = () => {
       return;
     }
 
-    // Set loading state
+    // Check network for online login
+    if (!networkStatus.isOnline) {
+      Alert.alert(
+        "No Internet Connection",
+        "You're offline. Would you like to try logging in with cached credentials?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Try Offline Login", onPress: handleOfflineLogin }
+        ]
+      );
+      return;
+    }
+
+    // Warn about weak connection
+    if (networkStatus.quality === 'poor') {
+      Alert.alert(
+        "Weak Connection",
+        "Your internet connection is weak. Login may take longer than usual.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Continue", onPress: () => performLogin() }
+        ]
+      );
+      return;
+    }
+
+    await performLogin();
+  };
+
+  const performLogin = async (): Promise<void> => {
     setIsLoggingIn(true);
 
     try {
-      // Use auth hook for login
+      console.log('🔑 Attempting login for:', email);
+      
       const result = await login({ email, password }, rememberMe);
 
       if (result.success) {
-        // Check if user must change password - use the result from login response
         if (result.mustChangePassword || result.isFirstLogin) {
-          console.log("🔑 First login detected, redirecting to change password...");
+          console.log('🔑 First login detected, redirecting to change password...');
           router.push({
             pathname: "/change-password",
             params: { 
@@ -126,72 +169,56 @@ const LoginScreen: React.FC = () => {
             }
           });
         } else {
-          // Success - navigate to main app
-          console.log("🔑 Login successful, navigating to tabs...");
+          console.log('🔑 Login successful, navigating to tabs...');
           router.replace('/(tabs)');
         }
         setLoginAttempts(0);
       } else {
-        // Handle login failure
-        const newAttempts = loginAttempts + 1;
-        setLoginAttempts(newAttempts);
-
-        if (newAttempts >= 5) {
-          setIsBlocked(true);
-          setBlockTimer(300); // 5 minutes block
-          Alert.alert(
-            "Account Locked",
-            "Too many failed attempts. Your account has been temporarily locked for 5 minutes.",
-            [{ text: "OK" }]
-          );
-        } else {
-          Alert.alert(
-            "Login Failed",
-            `${result.error} ${5 - newAttempts} attempts remaining.`,
-            [{ text: "Try Again" }]
-          );
-        }
+        handleLoginFailure(result.error || 'Login failed');
       }
     } catch (error) {
-      const newAttempts = loginAttempts + 1;
-      setLoginAttempts(newAttempts);
-
-      if (newAttempts >= 5) {
-        setIsBlocked(true);
-        setBlockTimer(300); // 5 minutes block
-        Alert.alert(
-          "Account Locked",
-          "Too many failed attempts. Your account has been temporarily locked for 5 minutes.",
-          [{ text: "OK" }]
-        );
-      } else {
-        const errorMessage = error instanceof Error ? error.message : "Login failed. Please try again.";
-        Alert.alert(
-          "Login Failed",
-          `${errorMessage} ${5 - newAttempts} attempts remaining.`,
-          [{ text: "Try Again" }]
-        );
-      }
+      const errorMessage = error instanceof Error ? error.message : 'Login failed. Please try again.';
+      handleLoginFailure(errorMessage);
     } finally {
-      // Always reset loading state, whether success or failure
       setIsLoggingIn(false);
     }
   };
 
+  const handleLoginFailure = (errorMessage: string): void => {
+    const newAttempts = loginAttempts + 1;
+    setLoginAttempts(newAttempts);
+
+    if (newAttempts >= 5) {
+      setIsBlocked(true);
+      setBlockTimer(300); // 5 minutes block
+      Alert.alert(
+        "Account Locked",
+        "Too many failed attempts. Your account has been temporarily locked for 5 minutes.",
+        [{ text: "OK" }]
+      );
+    } else {
+      Alert.alert(
+        "Login Failed",
+        `${errorMessage}\n\n${5 - newAttempts} attempts remaining.`,
+        [{ text: "Try Again" }]
+      );
+    }
+  };
+
   const handleOfflineLogin = async (): Promise<void> => {
-    // Prevent multiple simultaneous login attempts
     if (isLoggingIn) {
-      console.log('Offline login already in progress...');
+      console.log('🔄 Offline login already in progress...');
       return;
     }
 
     setIsLoggingIn(true);
 
     try {
+      console.log('📱 Attempting offline login...');
       const result = await offlineLogin();
 
       if (result.success) {
-        console.log("🔑 Offline login successful, navigating to tabs...");
+        console.log('🔑 Offline login successful, navigating to tabs...');
         router.replace('/(tabs)');
       } else {
         Alert.alert(
@@ -201,7 +228,7 @@ const LoginScreen: React.FC = () => {
         );
       }
     } catch (error) {
-      console.error("Offline login error:", error);
+      console.error('❌ Offline login error:', error);
       Alert.alert(
         "Offline Login Error",
         "Unable to access cached login data. Please connect to the internet.",
@@ -212,86 +239,41 @@ const LoginScreen: React.FC = () => {
     }
   };
 
-  const handleForgotPassword = (): void => {
-    setShowForgotPassword(true);
-  };
-
-  const submitPasswordReset = async (): Promise<void> => {
-    const identifier = resetEmail.trim() || resetPhone.trim();
-
-    if (!identifier) {
-      Alert.alert("Missing Information", "Please enter either your email or phone number.");
-      return;
-    }
+  const getConnectionStatusColor = (): string => {
+    if (!networkStatus.isOnline) return Colors.light.status.error;
     
-    try {
-      const result = await requestPasswordReset(identifier);
-      if (result.success) {
-        Alert.alert(
-          "Reset Request Sent",
-          "Your password reset request has been sent to the admin. You will receive new login credentials within 24 hours.",
-          [{ text: "OK", onPress: () => setShowForgotPassword(false) }]
-        );
-        // Clear form
-        setResetEmail('');
-        setResetPhone('');
-      } else {
-        Alert.alert("Error", result.error || "Password reset request failed.", [{ text: "OK" }]);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Password reset request failed.";
-      Alert.alert("Error", errorMessage, [{ text: "OK" }]);
+    switch (networkStatus.quality) {
+      case 'excellent': return Colors.light.status.success;
+      case 'good': return Colors.light.status.success;
+      case 'fair': return Colors.light.status.warning;
+      case 'poor': return Colors.light.status.error;
+      default: return Colors.light.status.error;
     }
   };
 
-  const ForgotPasswordModal: React.FC = () => (
-    <View style={styles.modalOverlay}>
-      <View style={styles.modalContainer}>
-        <View style={styles.modalHeader}>
-          <MaterialCommunityIcons name="shield-account" size={24} color={Colors.light.primary.red} />
-          <Text style={styles.modalTitle}>Password Reset Request</Text>
-        </View>
-        <Text style={styles.modalDescription}>
-          Enter your email or phone number. The admin will send you new login credentials via SMS.
-        </Text>
-        <TextInput
-          style={styles.modalInput}
-          placeholder="Email address"
-          placeholderTextColor={Colors.light.text.secondary} // Add this line
-          value={resetEmail}
-          onChangeText={setResetEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <Text style={styles.orText}>OR</Text>
-        <TextInput
-          style={styles.modalInput}
-          placeholder="Phone number"
-           placeholderTextColor={Colors.light.text.secondary} // Add this line
-          value={resetPhone}
-          onChangeText={setResetPhone}
-          keyboardType="phone-pad"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <View style={styles.modalButtons}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => setShowForgotPassword(false)}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={submitPasswordReset}
-          >
-            <Text style={styles.submitButtonText}>Submit</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
+  const getConnectionStatusText = (): string => {
+    if (!networkStatus.isOnline) return 'Offline';
+    
+    switch (networkStatus.quality) {
+      case 'excellent': return 'Excellent Connection';
+      case 'good': return 'Good Connection';
+      case 'fair': return 'Fair Connection';
+      case 'poor': return 'Poor Connection';
+      default: return 'Unknown';
+    }
+  };
+
+  const getConnectionIcon = (): string => {
+    if (!networkStatus.isOnline) return 'wifi-off';
+    
+    switch (networkStatus.quality) {
+      case 'excellent': return 'wifi';
+      case 'good': return 'wifi';
+      case 'fair': return 'wifi-strength-2';
+      case 'poor': return 'wifi-strength-1';
+      default: return 'wifi-off';
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -299,17 +281,27 @@ const LoginScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <StatusBar barStyle="light-content" backgroundColor={Colors.light.primary.red} />
-      {/* Connection Status */}
-      <View style={[styles.connectionStatus, isOffline && styles.offline]}>
-        {isOffline ? (
-          <MaterialCommunityIcons name="wifi-off" size={16} color={Colors.light.text.onPrimary} />
-        ) : (
-          <MaterialCommunityIcons name="wifi" size={16} color={Colors.light.text.onPrimary} />
-        )}
+      
+      {/* Enhanced Connection Status */}
+      <View style={[styles.connectionStatus, { backgroundColor: getConnectionStatusColor() }]}>
+        <MaterialCommunityIcons 
+          name={getConnectionIcon()} 
+          size={16} 
+          color={Colors.light.text.onPrimary} 
+        />
         <Text style={styles.connectionText}>
-          {isOffline ? 'Offline Mode' : 'Connected'}
+          {getConnectionStatusText()}
         </Text>
+        {networkStatus.quality === 'poor' && networkStatus.isOnline && (
+          <MaterialCommunityIcons 
+            name="alert-circle-outline" 
+            size={14} 
+            color={Colors.light.text.onPrimary} 
+            style={{ marginLeft: 4 }}
+          />
+        )}
       </View>
+      
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
@@ -318,7 +310,16 @@ const LoginScreen: React.FC = () => {
             <Text style={styles.logoSubtext}>SUSU LIMITED</Text>
           </View>
           <Text style={styles.welcomeText}>Field Worker Login</Text>
+          
+          {/* Network Quality Indicator */}
+          {networkStatus.isOnline && networkStatus.quality === 'poor' && (
+            <View style={styles.networkWarning}>
+              <MaterialCommunityIcons name="wifi-strength-1" size={16} color={Colors.light.status.warning} />
+              <Text style={styles.networkWarningText}>Slow connection detected</Text>
+            </View>
+          )}
         </View>
+        
         {/* Login Form */}
         <View style={styles.formContainer}>
           {/* Email Input */}
@@ -327,7 +328,7 @@ const LoginScreen: React.FC = () => {
             <TextInput
               style={styles.input}
               placeholder="Email address"
-               placeholderTextColor={Colors.light.text.secondary} // Add this line
+              placeholderTextColor={Colors.light.text.secondary}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -336,13 +337,14 @@ const LoginScreen: React.FC = () => {
               editable={!isLoading && !isBlocked}
             />
           </View>
+          
           {/* Password Input */}
           <View style={styles.inputContainer}>
             <MaterialCommunityIcons name="lock-outline" size={20} color={Colors.light.text.secondary} />
             <TextInput
               style={styles.input}
               placeholder="Password"
-               placeholderTextColor={Colors.light.text.secondary} // Add this line
+              placeholderTextColor={Colors.light.text.secondary}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -362,6 +364,7 @@ const LoginScreen: React.FC = () => {
               )}
             </TouchableOpacity>
           </View>
+          
           {/* Remember Me */}
           <TouchableOpacity
             style={styles.rememberContainer}
@@ -373,53 +376,59 @@ const LoginScreen: React.FC = () => {
             </View>
             <Text style={styles.rememberText}>Remember me for 7 days</Text>
           </TouchableOpacity>
+          
           {/* Login Attempts Warning */}
           {loginAttempts > 0 && !isBlocked && (
             <View style={styles.warningContainer}>
+              <MaterialCommunityIcons name="alert-circle" size={16} color={Colors.light.text.onPrimary} />
               <Text style={styles.warningText}>
                 {5 - loginAttempts} attempts remaining
               </Text>
             </View>
           )}
+          
           {/* Block Timer */}
           {isBlocked && (
             <View style={styles.errorContainer}>
+              <MaterialCommunityIcons name="lock-clock" size={16} color={Colors.light.text.onPrimary} />
               <Text style={styles.errorText}>
                 Account locked for {Math.floor(blockTimer / 60)}:{(blockTimer % 60).toString().padStart(2, '0')}
               </Text>
             </View>
           )}
+          
           {/* Login Button */}
           <TouchableOpacity
             style={[
               styles.loginButton,
               (isLoading || isBlocked) && styles.loginButtonDisabled
             ]}
-            onPress={isOffline ? handleOfflineLogin : handleLogin}
+            onPress={networkStatus.isOnline ? handleLogin : handleOfflineLogin}
             disabled={isLoading || isBlocked}
           >
             {isLoading ? (
-              <ActivityIndicator size="small" color={Colors.light.text.onPrimary} />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={Colors.light.text.onPrimary} />
+                <Text style={[styles.loginButtonText, { marginLeft: 8 }]}>Logging in...</Text>
+              </View>
             ) : (
               <Text style={styles.loginButtonText}>
-                {isOffline ? 'Login Offline' : 'Login'}
+                {networkStatus.isOnline ? 'Login' : 'Login Offline'}
               </Text>
             )}
           </TouchableOpacity>
-          {/* Forgot Password */}
-          {/* <TouchableOpacity
-            style={[styles.forgotButton, isLoading && styles.disabledButton]}
-            onPress={handleForgotPassword}
-            disabled={isLoading}
-          >
-            <Text style={styles.forgotButtonText}>
-              Forgot Password? Request Reset
-            </Text>
-          </TouchableOpacity> */}
+          
+          {/* Offline Mode Info */}
+          {!networkStatus.isOnline && (
+            <View style={styles.offlineInfo}>
+              <MaterialCommunityIcons name="information-outline" size={16} color={Colors.light.text.secondary} />
+              <Text style={styles.offlineInfoText}>
+                You're offline. Tap "Login Offline" to use cached credentials.
+              </Text>
+            </View>
+          )}
         </View>
       </ScrollView>
-      {/* Forgot Password Modal */}
-      {/* {showForgotPassword && <ForgotPasswordModal />} */}
     </KeyboardAvoidingView>
   );
 };
@@ -624,8 +633,48 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   
-  // ... rest of your styles remain the same
-  // Modal Styles
+  networkWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.status.warning + '20',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  
+  networkWarningText: {
+    color: Colors.light.status.warning,
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  offlineInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.light.background.secondary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  
+  offlineInfoText: {
+    color: Colors.light.text.secondary,
+    fontSize: 12,
+    textAlign: 'center',
+    marginLeft: 6,
+    flex: 1,
+  },
   modalOverlay: {
     position: 'absolute',
     top: 0,

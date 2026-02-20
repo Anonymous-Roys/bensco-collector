@@ -5,10 +5,14 @@ import { clientAPI } from '@/services/api';
 // Async thunks
 export const fetchClients = createAsyncThunk(
   'clients/fetchClients',
-  async (params: { search?: string } | undefined, { rejectWithValue }) => {
+  async (params: { search?: string; page?: number; loadMore?: boolean } | undefined, { rejectWithValue }) => {
     try {
-      const response = await clientAPI.getClients(params);
-      return response;
+      const response = await clientAPI.getClients({
+        search: params?.search,
+        page: params?.page || 1,
+        page_size: 15
+      });
+      return { ...response, loadMore: params?.loadMore || false };
     } catch (error) {
       return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch clients');
     }
@@ -31,20 +35,22 @@ export const createClient = createAsyncThunk(
 interface ClientState {
   clients: Client[];
   loading: boolean;
+  loadingMore: boolean;
   error: string | null;
   totalCount: number;
-  nextPage: string | null;
-  previousPage: string | null;
+  currentPage: number;
+  hasNextPage: boolean;
 }
 
 // Initial state
 const initialState: ClientState = {
   clients: [],
   loading: false,
+  loadingMore: false,
   error: null,
   totalCount: 0,
-  nextPage: null,
-  previousPage: null,
+  currentPage: 1,
+  hasNextPage: false,
 };
 
 // Slice
@@ -58,26 +64,40 @@ const clientSlice = createSlice({
     clearClients: (state) => {
       state.clients = [];
       state.totalCount = 0;
-      state.nextPage = null;
-      state.previousPage = null;
+      state.currentPage = 1;
+      state.hasNextPage = false;
     },
   },
   extraReducers: (builder) => {
     builder
       // Fetch clients
-      .addCase(fetchClients.pending, (state) => {
-        state.loading = true;
+      .addCase(fetchClients.pending, (state, action) => {
+        if (action.meta.arg?.loadMore) {
+          state.loadingMore = true;
+        } else {
+          state.loading = true;
+        }
         state.error = null;
       })
-      .addCase(fetchClients.fulfilled, (state, action: PayloadAction<ClientListResponse>) => {
+      .addCase(fetchClients.fulfilled, (state, action) => {
         state.loading = false;
-        state.clients = action.payload.results;
+        state.loadingMore = false;
+        
+        if (action.payload.loadMore) {
+          // Append new clients for infinite scroll
+          state.clients = [...state.clients, ...action.payload.results];
+        } else {
+          // Replace clients for new search or refresh
+          state.clients = action.payload.results;
+        }
+        
         state.totalCount = action.payload.count;
-        state.nextPage = action.payload.next;
-        state.previousPage = action.payload.previous;
+        state.currentPage = action.meta.arg?.page || 1;
+        state.hasNextPage = action.payload.next !== null;
       })
       .addCase(fetchClients.rejected, (state, action) => {
         state.loading = false;
+        state.loadingMore = false;
         state.error = action.payload as string;
       })
       // Create client
