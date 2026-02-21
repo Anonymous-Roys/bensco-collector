@@ -44,8 +44,6 @@ export default function CollectionHistory() {
         
         const groupedData = Array.isArray(data.results || data) ? (data.results || data) : [];
         setAllGroupedData(groupedData);
-        
-        // Load first page
         setDisplayedData(groupedData);
         setHasNextPage(data.next !== null);
         setCurrentPage(1);
@@ -71,7 +69,7 @@ export default function CollectionHistory() {
       
       const newGroupedData = Array.isArray(data.results || data) ? (data.results || data) : [];
       
-      // Append new data
+      // Append new data to existing data
       const updatedAllData = [...allGroupedData, ...newGroupedData];
       const updatedDisplayData = [...displayedData, ...newGroupedData];
       
@@ -222,43 +220,44 @@ export default function CollectionHistory() {
       </View>
 
   
-      {loading && (
+      {/* Collection List */}
+      {loading ? (
         <View style={styles.emptyState}>
           <ActivityIndicator size="large" color={LogoColors.primary.red} />
           <Text style={styles.emptyText}>Loading history...</Text>
         </View>
-      )}
-      {/* Collection List */}
-      <FlatList
-        data={displayedData}
-        renderItem={renderDayFolder}
-        keyExtractor={item => item.date}
-        contentContainerStyle={styles.listContainer}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.loadingMore}>
-              <ActivityIndicator size="small" color={LogoColors.primary.red} />
-              <Text style={styles.loadingMoreText}>Loading more...</Text>
+      ) : (
+        <FlatList
+          data={displayedData}
+          renderItem={renderDayFolder}
+          keyExtractor={item => item.date}
+          contentContainerStyle={styles.listContainer}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.loadingMore}>
+                <ActivityIndicator size="small" color={LogoColors.primary.red} />
+                <Text style={styles.loadingMoreText}>Loading more...</Text>
+              </View>
+            ) : hasNextPage ? (
+              <TouchableOpacity style={styles.loadMoreButton} onPress={loadMore}>
+                <Text style={styles.loadMoreText}>Load More</Text>
+              </TouchableOpacity>
+            ) : null
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <MaterialCommunityIcons 
+                name="clipboard-text-outline" 
+                size={48} 
+                color={LogoColors.text.secondary} 
+              />
+              <Text style={styles.emptyText}>No collection records found</Text>
             </View>
-          ) : hasNextPage ? (
-            <TouchableOpacity style={styles.loadMoreButton} onPress={loadMore}>
-              <Text style={styles.loadMoreText}>Load More</Text>
-            </TouchableOpacity>
-          ) : null
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <MaterialCommunityIcons 
-              name="clipboard-text-outline" 
-              size={48} 
-              color={LogoColors.text.secondary} 
-            />
-            <Text style={styles.emptyText}>No collection records found</Text>
-          </View>
-        }
-      />
+          }
+        />
+      )}
     </View>
     </Modal>
   );

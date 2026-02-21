@@ -161,11 +161,42 @@ export default function CollectorHome() {
                 });
               }
             });
+          } else if (contribsResult.value && contribsResult.value.results) {
+            // Handle paginated response
+            contribsResult.value.results.forEach((dayGroup: any) => {
+              if (dayGroup.contributions && Array.isArray(dayGroup.contributions)) {
+                dayGroup.contributions.forEach((contrib: any) => {
+                  allContributions.push({
+                    ...contrib,
+                    created_at: contrib.created_at,
+                    date: dayGroup.date
+                  });
+                });
+              }
+            });
           }
+          
           console.log('Flattened contributions:', allContributions);
-          const processedData = processContributions(allContributions);
-          console.log('Processed collections:', processedData.recentCollections);
-          setRecentCollections(processedData.recentCollections);
+          
+          // If no contributions from grouped API, try regular contributions API
+          if (allContributions.length === 0) {
+            try {
+              console.log('No grouped contributions, trying regular contributions API...');
+              const regularContribs = await contributionAPI.getContributions();
+              console.log('Regular contributions:', regularContribs);
+              if (Array.isArray(regularContribs) && regularContribs.length > 0) {
+                const processedData = processContributions(regularContribs);
+                console.log('Processed regular collections:', processedData.recentCollections);
+                setRecentCollections(processedData.recentCollections);
+              }
+            } catch (fallbackError) {
+              console.error('Fallback contributions API failed:', fallbackError);
+            }
+          } else {
+            const processedData = processContributions(allContributions);
+            console.log('Processed collections:', processedData.recentCollections);
+            setRecentCollections(processedData.recentCollections);
+          }
         }
         
         // Show error only if critical data failed to load
@@ -239,9 +270,36 @@ export default function CollectorHome() {
               });
             }
           });
+        } else if (contribsResult.value && contribsResult.value.results) {
+          // Handle paginated response
+          contribsResult.value.results.forEach((dayGroup: any) => {
+            if (dayGroup.contributions && Array.isArray(dayGroup.contributions)) {
+              dayGroup.contributions.forEach((contrib: any) => {
+                allContributions.push({
+                  ...contrib,
+                  created_at: contrib.created_at,
+                  date: dayGroup.date
+                });
+              });
+            }
+          });
         }
-        const processedData = processContributions(allContributions);
-        setRecentCollections(processedData.recentCollections);
+        
+        // If no contributions from grouped API, try regular contributions API
+        if (allContributions.length === 0) {
+          try {
+            const regularContribs = await contributionAPI.getContributions();
+            if (Array.isArray(regularContribs) && regularContribs.length > 0) {
+              const processedData = processContributions(regularContribs);
+              setRecentCollections(processedData.recentCollections);
+            }
+          } catch (fallbackError) {
+            console.error('Fallback contributions API failed:', fallbackError);
+          }
+        } else {
+          const processedData = processContributions(allContributions);
+          setRecentCollections(processedData.recentCollections);
+        }
       }
       
       // Show error only if all requests failed
