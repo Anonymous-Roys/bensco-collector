@@ -201,7 +201,16 @@ def list_contributions(request):
     
     paginated_contributions = paginator.paginate_queryset(contributions, request)
     serializer = ContributionModelSerializer(paginated_contributions, many=True)
-    return paginator.get_paginated_response(serializer.data)
+    
+    # Calculate filtered total for all matching contributions
+    filtered_total = contributions.aggregate(
+        total=Sum('amount')
+    )['total'] or 0
+    
+    response_data = paginator.get_paginated_response(serializer.data).data
+    response_data['filtered_total'] = float(filtered_total)
+    
+    return Response(response_data)
 
 
 
