@@ -119,6 +119,23 @@ def list_contributions(request):
                       Q(client__phone_number__icontains=search) | \
                       Q(client__unique_code__icontains=search)
         contributions = contributions.filter(search_query)
+        
+        # Order by search relevance: exact matches first, then partial matches
+        from django.db.models import Case, When, Value, IntegerField
+        contributions = contributions.annotate(
+            search_priority=Case(
+                # Exact client name match gets highest priority
+                When(client__name__iexact=search, then=Value(1)),
+                # Exact unique code match gets second priority
+                When(client__unique_code__iexact=search, then=Value(2)),
+                # Client name starts with search term gets third priority
+                When(client__name__istartswith=search, then=Value(3)),
+                # Everything else gets lower priority
+                default=Value(4),
+                output_field=IntegerField()
+            )
+        ).order_by('search_priority', '-created_at')
+        
         # Use search pagination for better search experience
         paginator = SearchPagination()
     else:
