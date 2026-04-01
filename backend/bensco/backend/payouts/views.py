@@ -208,8 +208,12 @@ def mark_payout_paid(request, payout_id):
     except PayoutModel.DoesNotExist:
         return Response({'error': 'Payout not found'}, status=404)
 
+    print(f"Payout found: {payout.id}, Status: {payout.status}")
+
     if payout.status != PayoutModel.StatusChoices.APPROVED:
-        return Response({'error': 'Only approved payouts can be marked as paid'}, status=400)
+        error_msg = f'Only approved payouts can be marked as paid. Current status: {payout.status}'
+        print(error_msg)
+        return Response({'error': error_msg}, status=400)
 
     if request.user.role != 'admin':
         return Response({'error': 'Only admins can mark payouts as paid'}, status=403)
@@ -217,39 +221,50 @@ def mark_payout_paid(request, payout_id):
     from decimal import Decimal
     from django.db import transaction
     
-    with transaction.atomic():
-        # Mark as paid
-        payout.status = PayoutModel.StatusChoices.PAID
-        payout.paid_on = timezone.now().date()
-        
-        # Ensure the net payout amount is properly calculated
-        if not payout.net_payout or payout.net_payout <= 0:
-            commission = payout.requested_amount / Decimal('31')
-            payout.net_payout = payout.requested_amount - commission
-            payout.commission = commission
-        
-        # Update the available balance snapshot at time of payment
-        if payout.client:
-            # Get current balance before this payout
-            current_balance = payout.client.get_available_balance()
+    try:
+        with transaction.atomic():
+            # Mark as paid
+            payout.status = PayoutModel.StatusChoices.PAID
+            payout.paid_on = timezone.now().date()
             
-            # Verify the payout is still valid (balance hasn't changed)
-            if payout.requested_amount > current_balance:
-                return Response({
-                    'error': f'Requested amount (₵{payout.requested_amount}) exceeds current available balance (₵{current_balance}). Please review the payout.'
-                }, status=400)
+            # Ensure the net payout amount is properly calculated
+            if not payout.net_payout or payout.net_payout <= 0:
+                commission = payout.requested_amount / Decimal('31')
+                payout.net_payout = payout.requested_amount - commission
+                payout.commission = commission
             
-            # Update the available balance field to reflect balance at time of payment
-            payout.available_balance = current_balance
-        
-        payout.save()
+            # Update the available balance snapshot at time of payment
+            if payout.client:
+                # Get current balance before this payout
+                try:
+                    current_balance = payout.client.get_available_balance()
+                    print(f"Current balance: {current_balance}, Requested amount: {payout.requested_amount}")
+                    
+                    # Verify the payout is still valid (balance hasn't changed)
+                    if payout.requested_amount > current_balance:
+                        error_msg = f'Requested amount (₵{payout.requested_amount}) exceeds current available balance (₵{current_balance}). Please review the payout.'
+                        print(error_msg)
+                        return Response({'error': error_msg}, status=400)
+                    
+                    # Update the available balance field to reflect balance at time of payment
+                    payout.available_balance = current_balance
+                except Exception as balance_error:
+                    print(f"Error getting client balance: {balance_error}")
+                    return Response({'error': f'Error calculating client balance: {str(balance_error)}'}, status=400)
+            
+            payout.save()
+            print(f"Payout {payout.id} marked as paid successfully")
 
-    return Response({
-        'message': 'Payout marked as paid and deducted from client balance',
-        'payout_id': str(payout.id),
-        'net_amount_paid': float(payout.net_payout),
-        'remaining_balance': float(payout.client.get_available_balance() if payout.client else 0)
-    }, status=200)
+        return Response({
+            'message': 'Payout marked as paid and deducted from client balance',
+            'payout_id': str(payout.id),
+            'net_amount_paid': float(payout.net_payout),
+            'remaining_balance': float(payout.client.get_available_balance() if payout.client else 0)
+        }, status=200)
+        
+    except Exception as e:
+        print(f"Error in mark_payout_paid: {e}")
+        return Response({'error': f'Error processing payout: {str(e)}'}, status=400)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
