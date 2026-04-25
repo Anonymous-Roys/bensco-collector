@@ -484,6 +484,10 @@ def reset_client_data(request, client_id):
         return Response({'error': 'Client not found'}, status=404)
     except Exception as e:
         return Response({'error': f'Error resetting client data: {str(e)}'}, status=400)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def request_client_payout(request, client_id):
     """Request payout for a specific client with withdrawal amount"""
     print(f"Payout request data: {request.data}")
     print(f"Client ID: {client_id}")
