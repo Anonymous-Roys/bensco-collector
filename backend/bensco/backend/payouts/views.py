@@ -430,7 +430,60 @@ def get_client_balance(request, client_id):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def request_client_payout(request, client_id):
+def reset_client_data(request, client_id):
+    """Reset all client data - contributions, payouts, cycles, and balance"""
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can reset client data'}, status=403)
+    
+    confirm = request.data.get('confirm', False)
+    if not confirm:
+        return Response({'error': 'Confirmation required. Send confirm=true'}, status=400)
+    
+    try:
+        from clients.models import ClientModel
+        from contributions.models import ContributionModel
+        from savings.models import SavingsCycleModel
+        from django.db import transaction
+        
+        client = ClientModel.objects.get(id=client_id)
+        
+        # Get counts before deletion for response
+        contributions_count = ContributionModel.objects.filter(
+            savings_cycle__client=client
+        ).count()
+        payouts_count = PayoutModel.objects.filter(client=client).count()
+        cycles_count = SavingsCycleModel.objects.filter(client=client).count()
+        old_balance = client.get_available_balance()
+        
+        with transaction.atomic():
+            # Delete all related data
+            ContributionModel.objects.filter(savings_cycle__client=client).delete()
+            PayoutModel.objects.filter(client=client).delete()
+            SavingsCycleModel.objects.filter(client=client).delete()
+            
+            # Reset initial balance
+            client.initial_balance = 0.00
+            client.save(update_fields=['initial_balance'])
+            
+        return Response({
+            'message': f'Client {client.name} data reset successfully',
+            'client_id': str(client.id),
+            'client_name': client.name,
+            'deleted': {
+                'contributions': contributions_count,
+                'payouts': payouts_count,
+                'savings_cycles': cycles_count
+            },
+            'balance': {
+                'old_balance': float(old_balance),
+                'new_balance': float(client.get_available_balance())
+            }
+        }, status=200)
+        
+    except ClientModel.DoesNotExist:
+        return Response({'error': 'Client not found'}, status=404)
+    except Exception as e:
+        return Response({'error': f'Error resetting client data: {str(e)}'}, status=400)
     """Request payout for a specific client with withdrawal amount"""
     print(f"Payout request data: {request.data}")
     print(f"Client ID: {client_id}")
