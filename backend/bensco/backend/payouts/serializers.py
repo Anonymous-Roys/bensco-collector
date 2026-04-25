@@ -29,7 +29,7 @@ class PayoutModelSerializer(serializers.ModelSerializer):
             'paid_on',
             'rejection_reason',
         ]
-        read_only_fields = ['id', 'requested_by', 'requested_by_role', 'requested_on', 'client_name', 'client_unique_code']
+        read_only_fields = ['id', 'requested_by', 'requested_by_role', 'requested_on', 'client_name', 'client_unique_code', 'available_balance']
 
     def get_requested_by_role(self, obj):
         return obj.requested_by.role if obj.requested_by else None

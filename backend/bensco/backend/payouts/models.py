@@ -51,19 +51,21 @@ class PayoutModel(models.Model):
 
     def save(self, *args, **kwargs):
         # Auto-validation logic
-        if self.client and self.requested_amount and not self.pk:
+        if self.client and self.requested_amount:
             try:
+                # Always update available_balance to current value
                 self.available_balance = self.client.get_available_balance()
                 
-                # Calculate commission and net payout
-                from decimal import Decimal
-                commission = self.requested_amount / Decimal('31')
-                net_payout = self.requested_amount - commission
+                # Calculate commission and net payout if not set
+                if not self.commission or not self.net_payout:
+                    from decimal import Decimal
+                    self.commission = self.requested_amount / Decimal('31')
+                    self.net_payout = self.requested_amount - self.commission
                 
-                # Auto-reject if net payout > available balance (invalid request)
-                if net_payout > self.available_balance:
+                # Auto-reject if requested amount > available balance (only for new payouts)
+                if not self.pk and self.requested_amount > self.available_balance:
                     self.status = self.StatusChoices.AUTO_REJECTED
-                    self.rejection_reason = f"Net payout (₵{net_payout}) exceeds available balance (₵{self.available_balance})"
+                    self.rejection_reason = f"Requested amount (₵{self.requested_amount}) exceeds available balance (₵{self.available_balance})"
             except Exception as e:
                 print(f"Error in payout save validation: {e}")
         
