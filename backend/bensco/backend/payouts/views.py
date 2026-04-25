@@ -346,6 +346,10 @@ def debug_client_balance(request, client_id):
         return Response({'error': 'Client not found'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=400)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_collector_payouts(request):
     """Get payouts for clients accessible to the collector (assigned or shared)"""
     if request.user.role != 'collector':
         return Response({'detail': 'Only collectors can view their payouts.'}, status=403)
