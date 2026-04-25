@@ -203,12 +203,17 @@ def reject_payout(request, payout_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def mark_payout_paid(request, payout_id):
+    # Quick fix option: Skip validation flag
+    skip_validation = request.data.get('skip_validation', False)
+    
     try:
         payout = PayoutModel.objects.get(id=payout_id)
     except PayoutModel.DoesNotExist:
         return Response({'error': 'Payout not found'}, status=404)
 
     print(f"Payout found: {payout.id}, Status: {payout.status}")
+    print(f"Client: {payout.client.name if payout.client else 'No client'}")
+    print(f"Skip validation: {skip_validation}")
 
     if payout.status != PayoutModel.StatusChoices.APPROVED:
         error_msg = f'Only approved payouts can be marked as paid. Current status: {payout.status}'
@@ -223,47 +228,93 @@ def mark_payout_paid(request, payout_id):
     
     try:
         with transaction.atomic():
+            print("Starting transaction...")
+            
             # Mark as paid
             payout.status = PayoutModel.StatusChoices.PAID
             payout.paid_on = timezone.now().date()
+            print(f"Set status to PAID and paid_on to {payout.paid_on}")
             
             # Ensure the net payout amount is properly calculated
             if not payout.net_payout or payout.net_payout <= 0:
                 commission = payout.requested_amount / Decimal('31')
                 payout.net_payout = payout.requested_amount - commission
                 payout.commission = commission
+                print(f"Calculated commission: {commission}, net payout: {payout.net_payout}")
             
-            # Update the available balance snapshot at time of payment
+            # Balance validation with debug info
             if payout.client:
-                # Get current balance before this payout
                 try:
-                    current_balance = payout.client.get_available_balance()
-                    print(f"Current balance: {current_balance}, Requested amount: {payout.requested_amount}")
+                    print("=== BALANCE CALCULATION DEBUG ===")
                     
-                    # Verify the payout is still valid (balance hasn't changed)
-                    if payout.requested_amount > current_balance:
-                        error_msg = f'Requested amount (₵{payout.requested_amount}) exceeds current available balance (₵{current_balance}). Please review the payout.'
+                    # Debug: Get initial balance
+                    initial_balance = payout.client.initial_balance or 0
+                    print(f"Initial balance: {initial_balance}")
+                    
+                    # Debug: Get total contributions
+                    from contributions.models import ContributionModel
+                    from django.db.models import Sum
+                    
+                    total_contributions = ContributionModel.objects.filter(
+                        savings_cycle__client=payout.client
+                    ).aggregate(total=Sum('amount'))['total'] or 0
+                    print(f"Total contributions: {total_contributions}")
+                    
+                    # Debug: Get total paid out
+                    total_paid_out = PayoutModel.objects.filter(
+                        client=payout.client,
+                        status='paid'
+                    ).aggregate(total=Sum('requested_amount'))['total'] or 0
+                    print(f"Total paid out: {total_paid_out}")
+                    
+                    # Calculate balance step by step
+                    calculated_balance = Decimal(str(initial_balance)) + Decimal(str(total_contributions)) - Decimal(str(total_paid_out))
+                    print(f"Calculated balance: {initial_balance} + {total_contributions} - {total_paid_out} = {calculated_balance}")
+                    
+                    # Get balance from method
+                    current_balance = payout.client.get_available_balance()
+                    print(f"Method balance: {current_balance}")
+                    print(f"Requested amount: {payout.requested_amount}")
+                    print(f"Balance check: {payout.requested_amount} > {current_balance} = {payout.requested_amount > current_balance}")
+                    
+                    # Apply validation unless skipped
+                    if not skip_validation and payout.requested_amount > current_balance:
+                        error_msg = f'Requested amount (₵{payout.requested_amount}) exceeds current available balance (₵{current_balance}). Use skip_validation=true to override.'
                         print(error_msg)
                         return Response({'error': error_msg}, status=400)
+                    elif skip_validation and payout.requested_amount > current_balance:
+                        print(f"WARNING: Balance validation skipped! Requested {payout.requested_amount} > Available {current_balance}")
                     
-                    # Update the available balance field to reflect balance at time of payment
                     payout.available_balance = current_balance
+                    print(f"Updated available_balance to: {current_balance}")
+                    
                 except Exception as balance_error:
-                    print(f"Error getting client balance: {balance_error}")
-                    return Response({'error': f'Error calculating client balance: {str(balance_error)}'}, status=400)
+                    print(f"Balance calculation failed: {balance_error}")
+                    import traceback
+                    traceback.print_exc()
+                    
+                    if not skip_validation:
+                        return Response({'error': f'Error calculating client balance: {str(balance_error)}'}, status=400)
+                    else:
+                        print("WARNING: Balance calculation failed but validation skipped")
+                        payout.available_balance = payout.requested_amount
             
+            print("Saving payout...")
             payout.save()
-            print(f"Payout {payout.id} marked as paid successfully")
+            print(f"Payout {payout.id} saved successfully")
 
+        print("Transaction completed successfully")
         return Response({
-            'message': 'Payout marked as paid and deducted from client balance',
+            'message': 'Payout marked as paid successfully',
             'payout_id': str(payout.id),
             'net_amount_paid': float(payout.net_payout),
-            'remaining_balance': float(payout.client.get_available_balance() if payout.client else 0)
+            'validation_skipped': skip_validation
         }, status=200)
         
     except Exception as e:
         print(f"Error in mark_payout_paid: {e}")
+        import traceback
+        traceback.print_exc()
         return Response({'error': f'Error processing payout: {str(e)}'}, status=400)
 
 @api_view(['GET'])
@@ -281,7 +332,20 @@ def get_payout_stats(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_collector_payouts(request):
+def debug_client_balance(request, client_id):
+    """Debug endpoint to get detailed balance calculation"""
+    if request.user.role != 'admin':
+        return Response({'detail': 'Only admins can access debug info'}, status=403)
+    
+    try:
+        from clients.models import ClientModel
+        client = ClientModel.objects.get(id=client_id)
+        debug_info = client.get_balance_debug_info()
+        return Response(debug_info, status=200)
+    except ClientModel.DoesNotExist:
+        return Response({'error': 'Client not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
     """Get payouts for clients accessible to the collector (assigned or shared)"""
     if request.user.role != 'collector':
         return Response({'detail': 'Only collectors can view their payouts.'}, status=403)

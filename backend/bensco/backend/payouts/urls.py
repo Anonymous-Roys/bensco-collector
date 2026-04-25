@@ -9,6 +9,7 @@ urlpatterns = [
     path('reject/<uuid:payout_id>/', views.reject_payout, name='reject-payout'),
     path('mark-paid/<uuid:payout_id>/', views.mark_payout_paid, name='mark-payout-paid'),
     path('stats/', get_payout_stats, name='payout-stats'),
+    path('debug-balance/<uuid:client_id>/', views.debug_client_balance, name='debug-client-balance'),
     path('request-client/<uuid:client_id>/', request_client_payout, name='request-client-payout'),
     path('client-balance/<uuid:client_id>/', get_client_balance, name='client-balance'),
     path('my-payouts/', get_collector_payouts, name='collector-payouts'),

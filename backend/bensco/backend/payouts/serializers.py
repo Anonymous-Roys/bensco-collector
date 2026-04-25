@@ -35,7 +35,10 @@ class PayoutModelSerializer(serializers.ModelSerializer):
         return obj.requested_by.role if obj.requested_by else None
     
     def get_client_name(self, obj):
-        return obj.client.name if obj.client else None
+        if obj.client:
+            import html
+            return html.unescape(obj.client.name)
+        return None
     
     def get_client_unique_code(self, obj):
         return obj.client.unique_code if obj.client else None

@@ -101,6 +101,57 @@ class ClientModel(models.Model):
             print(f"Error calculating balance for client {self.name}: {e}")
             return Decimal('0')
     
+    def get_balance_debug_info(self):
+        """Get detailed balance calculation for debugging"""
+        from decimal import Decimal
+        from django.db.models import Sum
+        
+        try:
+            initial = Decimal(str(self.initial_balance or 0))
+            
+            # Get contributions with details
+            from contributions.models import ContributionModel
+            contributions_qs = ContributionModel.objects.filter(
+                savings_cycle__client=self
+            )
+            total_contributions = contributions_qs.aggregate(total=Sum('amount'))['total'] or 0
+            contributions_count = contributions_qs.count()
+            
+            # Get payouts with details
+            from payouts.models import PayoutModel
+            payouts_qs = PayoutModel.objects.filter(
+                client=self,
+                status='paid'
+            )
+            total_paid_out = payouts_qs.aggregate(total=Sum('requested_amount'))['total'] or 0
+            payouts_count = payouts_qs.count()
+            
+            # Get pending payouts
+            pending_payouts = PayoutModel.objects.filter(
+                client=self,
+                status__in=['pending', 'approved']
+            ).aggregate(total=Sum('requested_amount'))['total'] or 0
+            
+            calculated_balance = initial + Decimal(str(total_contributions or 0)) - Decimal(str(total_paid_out or 0))
+            
+            return {
+                'client_name': self.name,
+                'initial_balance': float(initial),
+                'total_contributions': float(total_contributions or 0),
+                'contributions_count': contributions_count,
+                'total_paid_out': float(total_paid_out or 0),
+                'payouts_count': payouts_count,
+                'pending_payouts': float(pending_payouts or 0),
+                'calculated_balance': float(calculated_balance),
+                'final_balance': float(max(calculated_balance, Decimal('0')))
+            }
+            
+        except Exception as e:
+            return {
+                'error': str(e),
+                'client_name': self.name
+            }
+    
     def get_total_net_savings(self):
         """Get total net savings across all cycles (for display purposes)"""
         return self.get_available_balance()
