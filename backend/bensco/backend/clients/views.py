@@ -84,18 +84,14 @@ def get_clients_view(request):
         Prefetch('payoutmodel_set', queryset=None)
     )
 
-    # Admin sees all, Collector sees their clients + shared clients (collector=None)
-    if request.user.role == 'admin':
+    # Both admin and collector can see all clients
+    if request.user.role in ['admin', 'collector']:
         clients = base_queryset.all()
         if collector_id:
             if collector_id == 'unassigned':
                 clients = clients.filter(collector__isnull=True)
             else:
                 clients = clients.filter(collector__id=collector_id)
-    elif request.user.role == 'collector':
-        clients = base_queryset.filter(
-            Q(collector=request.user) | Q(collector__isnull=True)
-        )
     else:
         return Response({'detail': 'Unauthorized role.'}, status=403)
 
@@ -211,19 +207,17 @@ def get_clients_view(request):
 def client_detail(request, client_id):
     client = get_object_or_404(ClientModel, id=client_id)
     
-    # Check permissions - collectors can access their own clients or shared clients
-    if request.user.role == 'collector' and client.collector != request.user and client.collector is not None:
-        return Response({'detail': 'You can only access your own clients or shared clients.'}, status=403)
+    # Check permissions - both admin and collector can access all clients
+    if request.user.role not in ['admin', 'collector']:
+        return Response({'detail': 'Unauthorized role.'}, status=403)
 
     if request.method == "GET":
         serializer = ClientModelSerializer(client)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     elif request.method in ["PUT", "PATCH"]:
-        # Collectors can update their own clients or shared clients, admins can update any client
-        if request.user.role == 'collector' and client.collector != request.user and client.collector is not None:
-            return Response({'detail': 'You can only update your own clients or shared clients.'}, status=status.HTTP_403_FORBIDDEN)
-        elif request.user.role not in ['admin', 'collector']:
+        # Both admin and collector can update any client
+        if request.user.role not in ['admin', 'collector']:
             return Response({'detail': 'Unauthorized role.'}, status=status.HTTP_403_FORBIDDEN)
         
         # Handle 'all' collector assignment for admins
@@ -309,15 +303,11 @@ def search_clients_view(request):
         'amount_daily', 'created_at', 'collector__username', 'address__label'
     )
     
-    # Permission-based filtering
-    if request.user.role == 'admin':
+    # Both admin and collector can see all clients
+    if request.user.role in ['admin', 'collector']:
         clients = base_queryset.all()
         if collector_id:
             clients = clients.filter(collector__id=collector_id)
-    elif request.user.role == 'collector':
-        clients = base_queryset.filter(
-            Q(collector=request.user) | Q(collector__isnull=True)
-        )
     else:
         return Response({'detail': 'Unauthorized role.'}, status=403)
     
@@ -386,9 +376,9 @@ def get_client_transactions(request, client_id):
     try:
         client = get_object_or_404(ClientModel, id=client_id)
         
-        # Check permissions
-        if request.user.role == 'collector' and client.collector != request.user and client.collector is not None:
-            return Response({'detail': 'You can only access transactions for your own clients or shared clients.'}, status=403)
+        # Check permissions - both admin and collector can access all client transactions
+        if request.user.role not in ['admin', 'collector']:
+            return Response({'detail': 'Unauthorized role.'}, status=403)
         
         # Get contributions
         contributions = ContributionModel.objects.filter(client=client).select_related('collector')

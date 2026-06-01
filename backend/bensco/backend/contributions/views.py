@@ -102,12 +102,11 @@ def list_contributions(request):
     amount_max = request.query_params.get('amount_max')
     sort_by = request.query_params.get('sort_by', '-created_at')
     
-    # Base queryset with optimized select_related
-    if request.user.role == 'admin':
+    # Both admin and collector can see all contributions
+    if request.user.role in ['admin', 'collector']:
         contributions = ContributionModel.objects.select_related('client', 'collector').all()
     else:
-        # Collectors only see their own contributions
-        contributions = ContributionModel.objects.select_related('client', 'collector').filter(collector=request.user)
+        return Response({'detail': 'Unauthorized role.'}, status=403)
     
     # Apply search across ALL database records (not just current page)
     if search:

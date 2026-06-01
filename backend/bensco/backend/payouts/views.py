@@ -45,8 +45,9 @@ def create_payout(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_payouts(request):
-    if request.user.role != 'admin':
-        return Response({'detail': 'Only admins can view all payouts.'}, status=403)
+    # Both admin and collector can view all payouts
+    if request.user.role not in ['admin', 'collector']:
+        return Response({'detail': 'Unauthorized role.'}, status=403)
     
     search = request.query_params.get('search', '').strip()
     status_filter = request.query_params.get('status')
@@ -350,17 +351,12 @@ def debug_client_balance(request, client_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_collector_payouts(request):
-    """Get payouts for clients accessible to the collector (assigned or shared)"""
-    if request.user.role != 'collector':
-        return Response({'detail': 'Only collectors can view their payouts.'}, status=403)
+    """Get all payouts - accessible to both admin and collector"""
+    if request.user.role not in ['admin', 'collector']:
+        return Response({'detail': 'Unauthorized role.'}, status=403)
 
-    # Collect payouts where:
-    # - the client is assigned to the requesting collector
-    # - OR the client is shared (collector is null)
-    # - OR the payout was requested by the collector themselves
-    payouts = PayoutModel.objects.filter(
-        Q(client__collector=request.user) | Q(client__collector__isnull=True) | Q(requested_by=request.user)
-    ).order_by('-requested_on')
+    # Both admin and collector can see all payouts
+    payouts = PayoutModel.objects.all().order_by('-requested_on')
 
     # optional status filter
     status_filter = request.query_params.get('status')
@@ -374,20 +370,17 @@ def get_collector_payouts(request):
 @permission_classes([IsAuthenticated])
 def get_client_balance(request, client_id):
     """Get client's available balance for payout"""
-    if request.user.role != 'collector':
-        return Response({'detail': 'Only collectors can check client balance.'}, status=403)
+    if request.user.role not in ['admin', 'collector']:
+        return Response({'detail': 'Unauthorized role.'}, status=403)
     
     try:
         from clients.models import ClientModel
-        from django.db.models import Q
         
-        # Allow access to assigned clients or shared clients (collector=None)
-        client = ClientModel.objects.filter(
-            Q(id=client_id) & (Q(collector=request.user) | Q(collector__isnull=True))
-        ).first()
+        # Both admin and collector can access all clients
+        client = ClientModel.objects.filter(id=client_id).first()
         
         if not client:
-            return Response({'detail': 'Client not found or not accessible to you.'}, status=404)
+            return Response({'detail': 'Client not found.'}, status=404)
             
         available_balance = client.get_available_balance()
         
@@ -493,8 +486,8 @@ def request_client_payout(request, client_id):
     print(f"Client ID: {client_id}")
     print(f"User: {request.user}")
     
-    if request.user.role != 'collector':
-        return Response({'detail': 'Only collectors can request payouts.'}, status=403)
+    if request.user.role not in ['admin', 'collector']:
+        return Response({'detail': 'Unauthorized role.'}, status=403)
     
     try:
         from clients.models import ClientModel
@@ -502,13 +495,11 @@ def request_client_payout(request, client_id):
         from django.db.models import Sum, Count, Q
         from decimal import Decimal
         
-        # Allow access to assigned clients or shared clients (collector=None)
-        client = ClientModel.objects.filter(
-            Q(id=client_id) & (Q(collector=request.user) | Q(collector__isnull=True))
-        ).first()
+        # Both admin and collector can access all clients
+        client = ClientModel.objects.filter(id=client_id).first()
         
         if not client:
-            return Response({'detail': 'Client not found or not accessible to you.'}, status=404)
+            return Response({'detail': 'Client not found.'}, status=404)
         requested_amount_data = request.data.get('requested_amount')
         if not requested_amount_data:
             return Response({'detail': 'Requested amount is required.'}, status=400)
